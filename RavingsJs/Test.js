@@ -1,3 +1,5 @@
+// node Test.js
+
 ravings = require("./Ravings.js");
 
 readline = require("readline");
@@ -15,10 +17,11 @@ function GetInput(ques) {
     });
 }
 
-async function Main() {
+async function Main(rvs) {
     while(true) {
-        console.log(ravings.RunSentence(await GetInput("")));
+        console.log(rvs.RunSentence(await GetInput("> ")));
     }
 }
 
-Main();
+var rvs = new ravings.Ravings();
+Main(rvs);
