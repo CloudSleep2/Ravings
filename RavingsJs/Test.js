@@ -18,6 +18,11 @@ function GetInput(ques) {
 }
 
 async function Main(rvs) {
+    rvs.RunSentence(`
+var n = 12
+var m = 7 + n;
+n--;n--;n--
+    `);
     while(true) {
         console.log(rvs.RunSentence(await GetInput("> ")));
     }

@@ -1,3 +1,5 @@
+var gMapVar = new Map();
+
 class Ravings {
 
     arrVarMaps = []; // 装有 装有rvs变量的Map 的数组
@@ -59,8 +61,10 @@ class Ravings {
                 return 1;
             case "!":
             case "~":
-            case "++":
-            case "--":
+            case "++x":
+            case "--x":
+            case "x++":
+            case "x--":
             case "0+": // 正号
             case "0-": // 负号
                 return 2;
@@ -126,11 +130,24 @@ class Ravings {
         ",.()[]{}" + // 1 ~ 8
         "<>/*+-=%!&|^~"; // 9 ~ 21
 	/// @desc 分段句子
-    /// @param {array} destArrKeys 装有保留关键字的数组，[[关键字, 位置], [...], ...]
+    /// @param {array} destArrKeys 装有保留关键字的数组，每个下标内存着一个这个：[[关键字, 位置], [...], ...]
     CutSentence(str, destArrKeys) {
+        var finalRes = []; // 这里面会装着许多 res
+
         var res = [];
+        var keywords = [];
         var len = str.length;
         for(var i = 0; i < len; i++) {
+
+            if(str[i] == ";" || str[i] == "\n") {
+                if(res.length != 0 || keywords.length != 0) {
+                    finalRes.push(res);
+                    destArrKeys.push(keywords);
+                    res = [];
+                    keywords = [];
+                }
+                continue;
+            }
 
             if(this.CharIsNum(str[i])) { // 数字
                 for(var j = i + 1; j < len; j++) {
@@ -147,6 +164,9 @@ class Ravings {
 
             if(iCalChr == -1) { // 标识符
                 for(var j = i + 1; j < len; j++) {
+                    if(str[j] == ";" || str[j] == "\n") {
+                        break;
+                    }
                     iCalChr = this.strCalcChars.indexOf(str[j]);
                     if(iCalChr != -1) {
                         break;
@@ -154,7 +174,7 @@ class Ravings {
                 }
                 var ident = str.substring(i, j);
                 if(this.IsKeyWord(ident)) {
-                    destArrKeys.push([ident, res.length]);
+                    keywords.push([ident, res.length]);
                 } else {
                     res.push(ident);
                 }
@@ -174,13 +194,27 @@ class Ravings {
                     switch(opTemp) {
                         case "+":
                         case "-":
+                            var lenTemp = res.length;
+                            var prevop = undefined;
+                            if(lenTemp > 0) {
+                                prevop = res[lenTemp - 1];
+                            }
+                            
                             if(opTemp == opNext) {
                                 opTemp += opNext;
                                 i++;
+                                if(prevop != undefined) {
+                                    if(this.GetPriority(prevop) == this.notCalcPrio) { // 上一个符号不是运算符
+                                        opTemp = "x" + opTemp; // 变成 x++ 或 x--
+                                    } else {
+                                        opTemp += "x"; // 变成 ++x 或 --x
+                                    }
+                                } else {
+                                    opTemp += "x"; // 变成 ++x 或 --x
+                                }
                             } else { // 不是一样的
-                                var lenTemp = res.length;
-                                if(lenTemp > 0) {
-                                    if(this.GetPriority(res[lenTemp - 1]) != this.notCalcPrio) { // 上一个符号是个运算符
+                                if(prevop != undefined) {
+                                    if(prevop != "x++" && prevop != "x--" && this.GetPriority(prevop) != this.notCalcPrio) { // 上一个符号是运算符
                                         opTemp = "0" + opTemp; // 生成为 0- 或 0+ 运算符，注意这俩也是运算符，一个是正号一个是负号
                                     }
                                 } else {
@@ -200,8 +234,12 @@ class Ravings {
                 res.push(opTemp);
             }
         }
+        if(res.length != 0 || keywords.length != 0) {
+            finalRes.push(res);
+            destArrKeys.push(keywords);
+        }
 
-        return res;
+        return finalRes;
     }
 
     /// @desc 获取指令为有左右值(0)，还是仅有右值(1)，还是仅有左值(2)
@@ -211,15 +249,21 @@ class Ravings {
             case "0-":
             case "~":
             case "!":
+            case "++x":
+            case "--x":
                 return 1; // 仅有右值
+            case "x++":
+            case "x--":
+                return 2; // 仅有左值
         }
         return 0; // 有左值也有右值
     }
 
-	/// @desc 执行一条命令
+	/// @desc 执行一个命令
     RunOperation(op, lval, rval) {
         var res = undefined;
         var lres = undefined;
+        var rres = undefined;
 
         var lvalData = undefined, rvalData = undefined;
         if(typeof(lval) == "string") {
@@ -249,6 +293,20 @@ class Ravings {
                 break;
             case "~":
                 res = ~rvalData;
+                break;
+            case "x++":
+                res = lvalData;
+                lres = res + 1;
+                break;
+            case "x--":
+                res = lvalData;
+                lres = res - 1;
+                break;
+            case "++x":
+                rres = rvalData + 1;
+                break;
+            case "--x":
+                rres = rvalData - 1;
                 break;
             case "+":
                 res = lvalData + rvalData;
@@ -302,10 +360,15 @@ class Ravings {
                 lres = lvalData ^ rvalData;
                 break;
         }
-        if(lres != undefined) {
-            res = lres;
+        if(res == undefined) {
+            if(lres != undefined) {
+                res = lres;
+            } else
+            if(rres != undefined) {
+                res = rres;
+            }
         }
-        return [res, lres];
+        return [res, lres, rres]; // 返回值，新左值，新右值
     }
 
     /// @desc 中缀表达式 转换为 逆波兰表达式
@@ -360,51 +423,63 @@ class Ravings {
 	/// @desc 执行一个句子
     RunSentence(str = "") {
         var res = [];
-        var arrKeywords = [];
-        var arrParts = this.CutSentence(str, arrKeywords);
-        var partsLen = arrParts.length;
-        console.log(arrKeywords);
-        console.log(arrParts);
 
-        var len = arrKeywords.length;
-        for(var i = 0; i < len; i++) { // 关键字处理
-            var pos = arrKeywords[i][1];
-            if(arrKeywords[i][0] == "var") {
-                if(pos < partsLen) {
-                    this.NewVariable(arrParts[pos - i]); // 因为关键字不会被推入 arrParts 中，所以需要减去前面的关键字的数量才能得到正确的位置
-                }
-                continue;
-            }
-        }
+        var arrArrKeywords = [];
+        var arrArrParts = this.CutSentence(str, arrArrKeywords);
+        console.log(arrArrKeywords, "||||", arrArrParts);
 
-        var arrPolish = this.ToRevPolish(arrParts);
-        
-        var arrSt = [];
-        for(var i = 0; i < partsLen; i++) {
-            if(this.GetPriority(arrPolish[i]) == this.notCalcPrio) {
-                arrSt.push(arrPolish[i]);
-            } else {
-                var rval = 0;
-                var lval = 0;
+        var iLineLen = arrArrParts.length;
+        for(var iLine = 0; iLine < iLineLen; iLine++) {
+            var arrKeywords = arrArrKeywords[iLine];
+            var arrParts = arrArrParts[iLine];
 
-                var opSide = this.GetOpSide(arrPolish[i]);
-                if(opSide != 2) {
-                    rval = arrSt.pop();
-                }
-                if(opSide != 1) {
-                    lval = arrSt.pop();
-                }
+            var partsLen = arrParts.length;
+            // console.log(arrKeywords);
+            // console.log(arrParts);
 
-                var opRes = this.RunOperation(arrPolish[i], lval, rval);
-                arrSt.push(opRes[0]);
-
-                if(opRes[1] != undefined) {
-                    this.SetVariable(lval, opRes[1]);
+            var len = arrKeywords.length;
+            for(var i = 0; i < len; i++) { // 关键字处理
+                var pos = arrKeywords[i][1];
+                if(arrKeywords[i][0] == "var") {
+                    if(pos < partsLen) {
+                        this.NewVariable(arrParts[pos - i]); // 因为关键字不会被推入 arrParts 中，所以需要减去前面的关键字的数量才能得到正确的位置
+                    }
+                    continue;
                 }
             }
+
+            var arrPolish = this.ToRevPolish(arrParts);
+            
+            var arrSt = [];
+            for(var i = 0; i < partsLen; i++) {
+                if(this.GetPriority(arrPolish[i]) == this.notCalcPrio) {
+                    arrSt.push(arrPolish[i]);
+                } else {
+                    var rval = 0;
+                    var lval = 0;
+
+                    var opSide = this.GetOpSide(arrPolish[i]);
+                    if(opSide != 2) {
+                        rval = arrSt.pop();
+                    }
+                    if(opSide != 1) {
+                        lval = arrSt.pop();
+                    }
+
+                    var opRes = this.RunOperation(arrPolish[i], lval, rval);
+                    arrSt.push(opRes[0]);
+
+                    if(opRes[1] != undefined) {
+                        this.SetVariable(lval, opRes[1]);
+                    }
+                    if(opRes[2] != undefined) {
+                        this.SetVariable(rval, opRes[2]);
+                    }
+                }
+            }
+            res = arrSt[0];
+            // console.log(this.arrVarMaps);
         }
-        res = arrSt[0];
-        console.log(this.arrVarMaps);
 
         return res;
     }

@@ -23,16 +23,29 @@ function Ravings() constructor {
     }
 
 	/// @desc 分段句子
-	/// @param {array} destArrKeys 装有保留关键字的数组，[[关键字, 位置], [...], ...]
+	/// @param {array} destArrKeys 装有保留关键字的数组，每个下标内存着一个这个：[[关键字, 位置], [...], ...]
 	CutSentence = function(str, destArrKeys) {
 		static strCalcChars = 
 		    " " + // 1
 		    ",.()[]{}" + // 2 ~ 9
 		    "<>/*+-=%!&|^~"; // 10 ~ 21
+		
+		var finalRes = []; // 这里面会装着许多 res
 	
 	    var res = [];
+		var keywords = [];
 	    var len = string_length(str);
 	    for(var i = 1; i <= len; i++) {
+			
+			if(string_char_at(str, i) == ";" || string_char_at(str, i) == "\n") {
+				if(array_length(res) != 0 || array_length(keywords) != 0) {
+	                array_push(finalRes, res);
+	                array_push(destArrKeys, keywords);
+	                res = [];
+	                keywords = [];
+	                continue;
+				}
+            }
 
 	        if(CharIsNum(string_char_at(str, i))) { // 数字
 	            for(var j = i + 1; j <= len; j++) {
@@ -49,6 +62,9 @@ function Ravings() constructor {
 
 	        if(iCalChr == 0) { // 标识符
 	            for(var j = i + 1; j <= len; j++) {
+					if(string_char_at(str, j) == ";" || string_char_at(str, j) == "\n") {
+						break;
+					}
 	                iCalChr = string_pos(string_char_at(str, j), strCalcChars);
 	                if(iCalChr != 0) {
 	                    break;
@@ -56,7 +72,7 @@ function Ravings() constructor {
 	            }
 				var ident = string_copy(str, i, j);
                 if(IsKeyWord(ident)) {
-                    array_push(destArrKeys, [ident, array_length(res)]);
+                    array_push(keywords, [ident, array_length(res)]);
                 } else {
 					array_push(res, ident);
 				}
@@ -80,13 +96,27 @@ function Ravings() constructor {
 		                    break;
 		                case "+":
 		                case "-":
-							if(opTemp == opNext) {
-								opTemp += opNext;
-		                        i++;
-		                    } else { // 不是一样的
-                                var lenTemp = array_length(res);
-                                if(lenTemp > 0) {
-                                    if(GetPriority(res[lenTemp - 1]) != notCalcPrio) { // 上一个符号是个运算符
+							var lenTemp = array_length(res);
+                            var prevop = undefined;
+                            if(lenTemp > 0) {
+                                prevop = res[lenTemp - 1];
+                            }
+                            
+                            if(opTemp == opNext) {
+                                opTemp += opNext;
+                                i++;
+                                if(prevop != undefined) {
+                                    if(GetPriority(prevop) == notCalcPrio) { // 上一个符号不是运算符
+                                        opTemp = "x" + opTemp; // 变成 x++ 或 x--
+                                    } else {
+                                        opTemp += "x"; // 变成 ++x 或 --x
+                                    }
+                                } else {
+                                    opTemp += "x"; // 变成 ++x 或 --x
+                                }
+                            } else { // 不是一样的
+                                if(prevop != undefined) {
+                                    if(prevop != "x++" && prevop != "x--" && GetPriority(prevop) != notCalcPrio) { // 上一个符号是运算符
                                         opTemp = "0" + opTemp; // 生成为 0- 或 0+ 运算符，注意这俩也是运算符，一个是正号一个是负号
                                     }
                                 } else {
@@ -106,7 +136,12 @@ function Ravings() constructor {
 				array_push(res, opTemp);
 	        }
 	    }
-	    return res;
+		if(array_length(res) != 0 || array_length(keywords) != 0) {
+			array_push(finalRes, res);
+            array_push(destArrKeys, keywords);
+		}
+		
+	    return finalRes;
 	}
 
 	RunSentence = function(str = "") {
