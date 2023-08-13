@@ -1,4 +1,4 @@
-var gMapVar = new Map();
+var gMapVar = new Map(); // 装有rvs全局变量的Map
 
 class Ravings {
 
@@ -57,6 +57,8 @@ class Ravings {
 			case ")":
 			case "[":
 			case "]":
+			case "{":
+			case "}":
 			case ".":
 				return 1;
 			case "!":
@@ -125,26 +127,72 @@ class Ravings {
 		return false;
 	}
 
-	strCalcChars = 
-		" " + // 0
-		",.()[]{}" + // 1 ~ 8
-		"<>/*+-=%!&|^~"; // 9 ~ 21
-	/// @desc 分段句子
-	/// @param {array} destArrKeys 装有保留关键字的数组，每个下标内存着一个这个：[[关键字, 位置], [...], ...]
-	CutSentence(str, destArrKeys) {
-		var finalRes = []; // 这里面会装着许多 res
+	/// @desc 分段括号内的代码，该函数会和 CutCode 轮流调用彼此并递归
+	CutBracket(bracketL, bracketR, str, _begin, len, destArrEnd) {
+		var i = _begin;
+		var bracketNum = 1; // 括号的数量
+		for(var j = i + 1; j <= len; j++) {
+			if(str[j] == bracketR) {
+				bracketNum--;
+				if(bracketNum == 0) {
+					i++;
+					destArrEnd[0] = j;
+					break;
+				}
+			} else if(str[j] == bracketL) {
+				bracketNum++;
+			}
+		}
+		return this.CutCode(str.substring(i, j));
+	}
 
+	strCalcChars = 
+		" \t\n" + // 0 ~ 2
+		",.()[]{}" + // 3 ~ 10
+		"<>/*+-=%!&|^~"; // 11 ~ 23
+	/// @desc 分段代码成句子
+	/// @param {string} str
+	CutCode(str) {
+		var finalRes = []; // 这里面会装着许多 res
 		var res = [];
-		var keywords = [];
+
+		var keyBrace = false; // 带括号和大括号的关键字，正在扫描括号，例如 if for while
+		var keyBracketNum = 0; // 括号的数量
+		var keyBracePrev = false; // 用来给 ; 可以直接结束 if for while 之类的用的
+
 		var len = str.length;
 		for(var i = 0; i < len; i++) {
 
-			if(str[i] == ";" || str[i] == "\n") {
-				if(res.length != 0 || keywords.length != 0) {
+			if(str[i] == "{") {
+				keyBrace = false;
+				keyBracketNum = 0;
+				
+				if(res.length != 0) {
 					finalRes.push(res);
-					destArrKeys.push(keywords);
 					res = [];
-					keywords = [];
+				}
+				
+				var _newend = [0];
+				res.push("{");
+				res.push(this.CutBracket("{", "}", str, i, len, _newend)); // 下标1里存的是递归切割结果
+				i = _newend[0];
+
+				finalRes.push(res);
+				res = [];
+
+				continue;
+			}
+
+			if(str[i] == ";") {
+				if(res.length != 0) {
+					finalRes.push(res);
+					res = [];
+				} else
+				if(keyBracePrev == true) {
+					keyBracePrev = false;
+					keyBracketNum = 0;
+					finalRes.push(["{", []]);
+					res = [];
 				}
 				continue;
 			}
@@ -164,7 +212,7 @@ class Ravings {
 
 			if(iCalChr == -1) { // 标识符
 				for(var j = i + 1; j < len; j++) {
-					if(str[j] == ";" || str[j] == "\n") {
+					if(str[j] == ";") {
 						break;
 					}
 					iCalChr = this.strCalcChars.indexOf(str[j]);
@@ -173,18 +221,31 @@ class Ravings {
 					}
 				}
 				var ident = str.substring(i, j);
-				if(this.IsKeyWord(ident)) {
-					keywords.push([ident, res.length]);
-				} else {
-					res.push(ident);
-				}
+				res.push(ident);
 				i = j - 1;
+				if(ident == "if" || ident == "for" || ident == "while") {
+					keyBrace = true;
+					keyBracePrev = true;
+				}
 				continue;
-			} else if(iCalChr == 0) { // 空格
+			} else if(iCalChr <= 2) { // 空格
 				continue;
-			} else if(iCalChr <= 8) { // 单字符运算符
+			} else if(iCalChr <= 10) { // 单字符运算符
 				res.push(str[i]);
-			} else if(iCalChr <= 21) { // 双字符运算符
+				
+				if(keyBrace == true) {
+					if(str[i] == "(") {
+						keyBracketNum++;
+					} else if(str[i] == ")") {
+						keyBracketNum--;
+						if(keyBracketNum == 0) {
+							keyBrace = false;
+							finalRes.push(res);
+							res = [];
+						}
+					}
+				}
+			} else if(iCalChr <= 23) { // 双字符运算符
 				var opTemp = str[i];
 				var opNext = str[i + 1];
 				if(str[i + 1] == "=") {
@@ -234,9 +295,8 @@ class Ravings {
 				res.push(opTemp);
 			}
 		}
-		if(res.length != 0 || keywords.length != 0) {
+		if(res.length != 0) {
 			finalRes.push(res);
-			destArrKeys.push(keywords);
 		}
 
 		return finalRes;
@@ -294,6 +354,7 @@ class Ravings {
 			case "~":
 				res = ~rvalData;
 				break;
+
 			case "x++":
 				res = lvalData;
 				lres = res + 1;
@@ -308,6 +369,7 @@ class Ravings {
 			case "--x":
 				rres = rvalData - 1;
 				break;
+
 			case "+":
 				res = lvalData + rvalData;
 				break;
@@ -332,6 +394,7 @@ class Ravings {
 			case "^":
 				res = lvalData ^ rvalData;
 				break;
+
 			case "=":
 				lres = rvalData;
 				break;
@@ -359,6 +422,32 @@ class Ravings {
 			case "^=":
 				lres = lvalData ^ rvalData;
 				break;
+
+			case "&&":
+				res = (lvalData != 0) && (rvalData != 0);
+				break;
+			case "||":
+				res = (lvalData != 0) || (rvalData != 0);
+				break;
+
+			case "==":
+				res = lvalData == rvalData;
+				break;
+			case "!=":
+				res = lvalData != rvalData;
+				break;
+			case ">":
+				res = lvalData > rvalData;
+				break;
+			case ">=":
+				res = lvalData >= rvalData;
+				break;
+			case "<":
+				res = lvalData < rvalData;
+				break;
+			case "<=":
+				res = lvalData <= rvalData;
+				break;
 		}
 		if(res == undefined) {
 			if(lres != undefined) {
@@ -381,14 +470,14 @@ class Ravings {
 		for(var i = 0; i < len; i++) {
 			var val = arr[i];
 			var prio = this.GetPriority(val);
-			if(prio != this.notCalcPrio) { // 若为运算符
+			if(prio != this.notCalcPrio || this.IsKeyWord(val)) { // 若为运算符 或 关键字
 				if(val == "(") { // 左括号直接入栈
 					arrSt.push(val);
 				} else if(val == ")") { // 如果是右括号
 					// 将栈里最后一个左括号到当前操作之间的所有操作都移入逆波兰式
 					for(var j = arrSt.length; j > 0; j--) {
 						var temp = arrSt.pop();
-						if(temp == "(") {
+						if(temp == "(" && val == ")") {
 							break;
 						} else {
 							arrPo.push(temp);
@@ -396,7 +485,9 @@ class Ravings {
 					}
 				} else if(arrSt.length > 0) { // 栈不为空
 					var stLast = arrSt[arrSt.length - 1];
-					while(stLast != "(" && this.GetPriority(stLast) <= prio) { // 若栈顶运算符优先级高于或等于当前优先级（数字越小，优先级越高）
+					while(stLast != "(" && (this.GetPriority(stLast) <= prio || this.IsKeyWord(stLast))) {
+						// 若栈顶运算符优先级高于或等于当前优先级（数字越小，优先级越高）或为关键字
+						
 						arrPo.push(arrSt.pop()); // 栈顶移入逆波兰式
 						if(arrSt.length <= 0) {
 							break;
@@ -420,75 +511,111 @@ class Ravings {
 		return arrPo;
 	}
 
-	/// @desc 执行一个句子
-	RunSentence(str = "") {
-		var res = [];
+	/// @desc 执行一句代码，需要提供一些分段后的数据
+	/// ifskip 为长度1的数组，为了与外界传值
+	RunSentence(arrArrParts, iLine, ifskip) {
+		var arrParts = arrArrParts[iLine];
 
-		var arrArrKeywords = [];
-		var arrArrParts = this.CutSentence(str, arrArrKeywords);
-		console.log(arrArrKeywords, "||||", arrArrParts);
+		var len = arrParts.length;
+		// console.log("PARTS", arrParts);
+		
+		if(ifskip[0] == true) {
+			if(arrParts[0] != "if") {
+				ifskip[0] = false;
+				return 0;
+			} else {
+				return 0;
+			}
+		}
+		
+		var arrPolish = this.ToRevPolish(arrParts);
+		// console.log("POLISH", arrPolish);
+		
+		// 执行逆波兰式
+		var arrSt = [];
+		for(var i = 0; i < len; i++) {
 
-		var iLineLen = arrArrParts.length;
-		for(var iLine = 0; iLine < iLineLen; iLine++) {
-			var arrKeywords = arrArrKeywords[iLine];
-			var arrParts = arrArrParts[iLine];
-
-			var partsLen = arrParts.length;
-			// console.log(arrKeywords);
-			// console.log(arrParts);
-
-			var len = arrKeywords.length;
-			for(var i = 0; i < len; i++) { // 关键字处理
-				var pos = arrKeywords[i][1];
-				if(arrKeywords[i][0] == "var") {
-					if(pos < partsLen) {
-						this.NewVariable(arrParts[pos - i]); // 因为关键字不会被推入 arrParts 中，所以需要减去前面的关键字的数量才能得到正确的位置
+			var conti = true;
+			switch(arrPolish[i]) {
+				case "{":
+					this.AddVarMap();
+					arrSt.push(this.RunCuttedCode(arrSt.pop()));
+					this.RemoveVarMap();
+					break;
+				case "var":
+					this.NewVariable(arrSt[arrSt.length - 1]);
+					break;
+				case "if":
+					var valtemp = this.GetVariable(arrSt[0]);
+					valtemp ??= arrSt[0];
+					if(valtemp == 0) { // 若为假
+						ifskip[0] = true;
+						return 0;
 					}
-					continue;
-				}
+					break;
+				default:
+					conti = false;
+			}
+			if(conti) {
+				continue;
 			}
 
-			var arrPolish = this.ToRevPolish(arrParts);
-			
-			var arrSt = [];
-			for(var i = 0; i < partsLen; i++) {
-				if(this.GetPriority(arrPolish[i]) == this.notCalcPrio) {
-					arrSt.push(arrPolish[i]);
-				} else {
-					var rval = 0;
-					var lval = 0;
+			if(this.GetPriority(arrPolish[i]) == this.notCalcPrio) {
+				arrSt.push(arrPolish[i]);
+			} else {
+				
+				var rval = 0;
+				var lval = 0;
 
-					var opSide = this.GetOpSide(arrPolish[i]);
-					if(opSide != 2) {
-						rval = arrSt.pop();
-					}
-					if(opSide != 1) {
-						lval = arrSt.pop();
-					}
+				var opSide = this.GetOpSide(arrPolish[i]);
+				if(opSide != 2) {
+					rval = arrSt.pop();
+				}
+				if(opSide != 1) {
+					lval = arrSt.pop();
+				}
 
-					var opRes = this.RunOperation(arrPolish[i], lval, rval);
-					arrSt.push(opRes[0]);
+				var opRes = this.RunOperation(arrPolish[i], lval, rval);
+				arrSt.push(opRes[0]);
 
-					if(opRes[1] != undefined) {
-						this.SetVariable(lval, opRes[1]);
-					}
-					if(opRes[2] != undefined) {
-						this.SetVariable(rval, opRes[2]);
-					}
+				if(opRes[1] != undefined) {
+					this.SetVariable(lval, opRes[1]);
+				}
+				if(opRes[2] != undefined) {
+					this.SetVariable(rval, opRes[2]);
 				}
 			}
-			res = arrSt[0];
-			// console.log(this.arrVarMaps);
 		}
 
+		ifskip[0] = false;
+
+		var res = this.GetVariable(arrSt[0]);
+		res ??= arrSt[0];
 		return res;
+	}
+
+	/// @desc 执行一段切割好的代码，会返回最后一句结果作为返回值
+	RunCuttedCode(arrArrParts) {
+		var res = [];
+		var len = arrArrParts.length;
+		var ifskip = [false];
+		for(var iLine = 0; iLine < len; iLine++) {
+			res = this.RunSentence(arrArrParts, iLine, ifskip);
+			// console.log(this.arrVarMaps);
+		}
+		return res;
+	}
+
+	/// @desc 执行一段代码，会返回最后一句的结果作为返回值
+	RunCode(str = "") {
+		var arrArrParts = this.CutCode(str);
+		console.log(arrArrParts);
+
+		return this.RunCuttedCode(arrArrParts);
 	}
 
 };
 
-// console.log(RunSentence("1+2 +=  {}=+==3-- ++-+=114][abHe llo,cd  he..,=U_U+ijk&|w||or&&ld=!=World"));
-
 module.exports = {
 	Ravings
 };
-
