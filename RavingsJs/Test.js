@@ -22,21 +22,19 @@ async function Main(rvs) {
 	codes[0] = `
 var n = 12;
 var m = -5 + (2 * n);
-{
-	var k = -1 + n * m;
-	if(n != 12)
-		k /= 2;
-	else if(k == 227) k = 600;
-	else if(k > 250) k *= 2;
-	else k = 123;
-	++k;
-	if(n) {
-		var a = 14 / 1000;
-		var b = a + k;
-		k = b;
-	}
-	k;
+var k = -1 + n * m;
+if(n != 12)
+	k = 600;
+else if(k == 227) k /= 2;
+else if(k > 250) k *= 2;
+else k = 123;
+++k;
+if(n) {
+	var a = 14 / 1000;
+	var b = a + k;
+	k = b;
 }
+k;
 	`;
 	codes[1] = `
 var a = 3;
@@ -50,7 +48,9 @@ if(a > 0) {
 	var d = b / c + a * -1;
 	if(d != 3)
 	if(d != 2 && d != 0)
-	if(d != 3.8 || d < 0) if(d <= 4) d = 1000;
+	if(d != 3.8 || d < 0)
+	if(d <= 4 && 0) d = 1000;
+	else d = 500;
 	d;
 }
 	`;
@@ -64,8 +64,38 @@ if(n) {
 } else
 	n = 1;
 	`;
-	console.log(rvs.RunCode(codes[0]));
+	codes[4] = `
+var j = 0;
+var i = 1;
+while(i <= 100) {
+	j += i;
+	i++;
+}
+
+var l = 0;
+var k = 0;
+var n = 0;
+while(++l < 10)
+	if(1)
+	while(++k < 10)
+		if(0) n++;
+		else n--;
+
+var x = 10;
+var y = 1;
+var z = 0;
+while(x > 0) {
+	y = 0;
+	while(y < 10) {
+		z++;
+		y++;
+	}
+	x--;
+}
+	`;
+	console.log(rvs.RunCode(codes[4]));
 	while(true) {
+		console.log(rvs.arrVarMaps);
 		console.log(rvs.RunCode(await GetInput("> ")));
 	}
 }

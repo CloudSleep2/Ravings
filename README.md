@@ -32,6 +32,8 @@
 - [ ] 字符串 ""
 - [ ] 对象 {}
 - [ ] lambda 函数
+- [ ] 逗号运算符 ,
+- [ ] 注释 // /* */
 
 ## 保留关键字
 
@@ -73,14 +75,42 @@ Ravings.arrVarMaps 是一个 装有 装有 用户定义的rvs变量 的Map 的�
 
 详情 Ravings.RunSentence() 的 ifskip 参数，这是一个长度 1 的数组（利用JS和GML中数组的特性，起到类似指针的效果），同时用以输入和输出
 
+该参数作为输出时是为了延续到同一层的下一个 if 或 else
+
+当函数执行的开始，会判断 ifskip[0] 的值并做出反应：
+
 0 = 正常执行
 
 1 = 跳过，因为上一句是 if 且为假
+
+2 = 上上一句为 if 且为假，这句如果是 else 则执行，如果不是则也依然正常执行并设为 0，该条主要为了 if else 和 while 或 for 嵌套
 
 11 = 正常执行，只不过上一句是 if 且为真
 
 10 = 正常执行，只不过上上一句是 if 且为真，所以这句如果是 else 则将 ifskip 设为 21，若不为 else 则设为 0
 
-21 = 跳过，专门给 else 表示的跳过并设为 10，否则设为 0
+21 = 跳过，专门给 else 表示的
 
 而之所以 ifskip 在负责执行 Ravings.RunSentence() 的 Ravings.RunCuttedCode() 里定义而非作为 Ravings 类的成员变量定义，是为了让递归时候的每一层都有一个自己的 ifskip，而不会影响到别的层（关于层的解释和处理见【关于作用域】条目）
+
+还有一些小细节方面的处理，具体请见 Ravings.RunSentence() 和 Ravings.RunCuttedCode()
+
+### 关于 while 是如何处理的
+
+详情 Ravings.RunSentence() 的 inloop 参数，这是一个长度会变的数组（为了适用于嵌套循环还不写花括号的场景），同时用以输入和输出
+
+每进入一层循环，inloop.push() 一个新的元素，每结束一层循环，inloop.pop()
+
+该参数作为输出时是为了给调用该函数的 RunCuttedCode() 看的
+
+当函数执行结束后，调用该函数的 RunCuttedCode() 会判断 inloop 最后一位的值并做出反应：
+
+0 = 正常执行
+
+1 = 正常执行，结束后回到上一句，并设为 2（这个 2 是给 for 和 while 看的，如果接下来表达式为假，则设为 3）
+
+2 = 正常执行，下一句为循环，所以结束后设为 1
+
+3 = 跳过，给该函数看的
+
+还有一些小细节方面的处理，具体请见 Ravings.RunSentence() 和 Ravings.RunCuttedCode()
