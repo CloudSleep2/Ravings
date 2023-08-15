@@ -24,15 +24,12 @@ var n = 12;
 var m = -5 + (2 * n);
 {
 	var k = -1 + n * m;
-	if(3 > 4
-		&& n
-		== 12 ||
-		1
-		)
+	if(n != 12)
 		k /= 2;
-	if(n != 12) k *= 2;
+	else if(k == 227) k = 600;
+	else if(k > 250) k *= 2;
+	else k = 123;
 	++k;
-	n = 1;
 	if(n) {
 		var a = 14 / 1000;
 		var b = a + k;
@@ -57,7 +54,17 @@ if(a > 0) {
 	d;
 }
 	`;
-	console.log(rvs.RunCode(codes[2]));
+	codes[3] = `
+var n = 10;
+if(n) {
+	if(n != 10)
+		n = 3;
+	else
+		n = 2;
+} else
+	n = 1;
+	`;
+	console.log(rvs.RunCode(codes[0]));
 	while(true) {
 		console.log(rvs.RunCode(await GetInput("> ")));
 	}

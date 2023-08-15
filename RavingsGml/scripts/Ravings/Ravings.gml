@@ -23,19 +23,57 @@ function Ravings() constructor {
 	}
 
 	/// @desc 分段句子
+	/// @param {string} str
 	/// @param {array} destArrKeys 装有保留关键字的数组，每个下标内存着一个这个：[[关键字, 位置], [...], ...]
-	CutSentence = function(str, destArrKeys) {
+	CutCode = function(str, destArrKeys) {
 		static strCalcChars = 
-			" " + // 1
-			",.()[]{}" + // 2 ~ 9
-			"<>/*+-=%!&|^~"; // 10 ~ 21
+			" \t" + // 1 ~ 2
+			",.()[]{}" + // 3 ~ 10
+			"<>/*+-=%!&|^~"; // 11 ~ 23
 		
 		var finalRes = []; // 这里面会装着许多 res
+		
+		var braceNum = 0; // 花括号的数量
 	
 		var res = [];
 		var keywords = [];
+		
 		var len = string_length(str);
 		for(var i = 1; i <= len; i++) {
+			
+			if(braceNum == 0 && string_char_at(str, i) == "{") {
+				if(array_length(res) != 0 || array_length(keywords) != 0) {
+					// 考虑到每次执行函数时声明一个新函数的话效率很慢，所以就干脆每次都复制一次这四行好了
+					array_push(finalRes, res);
+					array_push(destArrKeys, keywords);
+					res = [];
+					keywords = [];
+				}
+
+				braceNum++;
+				for(var j = i + 1; j < len; j++) {
+					if(string_char_at(str, j) == "}") {
+						braceNum--;
+						if(braceNum == 0) {
+							i++;
+							keywords[0] = ["{", array_length(res)];
+							keywords[1] = []; // 下标1里存的是递归切割结果的关键字
+							res[0] = CutCode(string_copy(str, i, j - i), keywords[1]); // 遇到 { 时，递归切割
+							array_push(finalRes, res);
+							array_push(destArrKeys, keywords);
+							res = [];
+							keywords = [];
+
+							i = j; // 因为后面会 continue;，所以此处不需要 j + 1
+							break;
+						}
+					} else if(string_char_at(str, j) == "{") {
+						braceNum++;
+					}
+				}
+
+				continue;
+			}
 			
 			if(string_char_at(str, i) == ";" || string_char_at(str, i) == "\n") {
 				if(array_length(res) != 0 || array_length(keywords) != 0) {
@@ -78,11 +116,11 @@ function Ravings() constructor {
 				}
 				i = j - 1;
 				continue;
-			} else if(iCalChr == 1) { // 空格
+			} else if(iCalChr <= 2) { // 空格
 				continue;
-			} else if(iCalChr <= 9) { // 单字符运算符
+			} else if(iCalChr <= 10) { // 单字符运算符
 				array_push(res, string_char_at(str, i));
-			} else if(iCalChr <= 22) { // 双字符运算符
+			} else if(iCalChr <= 23) { // 双字符运算符
 				var opTemp = string_char_at(str, i);
 				var opNext = string_char_at(str, i + 1);
 				if(opNext == "=") {
@@ -145,7 +183,7 @@ function Ravings() constructor {
 	}
 
 	RunSentence = function(str = "") {
-		var arrParts = CutSentence(str, []);
+		var arrParts = CutCode(str, []);
 		return arrParts;
 	}
 	

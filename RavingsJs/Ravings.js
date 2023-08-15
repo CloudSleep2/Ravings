@@ -226,6 +226,9 @@ class Ravings {
 				if(ident == "if" || ident == "for" || ident == "while") {
 					keyBrace = true;
 					keyBracePrev = true;
+				} else if(ident == "else") {
+					finalRes.push(res);
+					res = [];
 				}
 				continue;
 			} else if(iCalChr <= 2) { // 空格
@@ -511,23 +514,45 @@ class Ravings {
 		return arrPo;
 	}
 
+	// 关于 ifskip，这是一个长度 1 的数组，同时用以输入和输出
+	// 0 = 正常执行
+	// 1 = 跳过，因为上一句是 if 且为假
+	// 11 = 正常执行，只不过上一句是 if 且为真
+	// 10 = 正常执行，只不过上上一句是 if 且为真，所以这句如果是 else 则将 ifskip 设为 21，若不为 else 则设为 0
+	// 21 = 跳过，专门给 else 表示的跳过并设为 10，否则设为 0
 	/// @desc 执行一句代码，需要提供一些分段后的数据
-	/// ifskip 为长度1的数组，为了与外界传值
 	RunSentence(arrArrParts, iLine, ifskip) {
 		var arrParts = arrArrParts[iLine];
 
 		var len = arrParts.length;
 		// console.log("PARTS", arrParts);
-		
-		if(ifskip[0] == true) {
-			if(arrParts[0] != "if") {
-				ifskip[0] = false;
-				return 0;
-			} else {
-				return 0;
+
+		if(ifskip[0] == 1) { // 若上一句是 if 且为假
+
+			// if for while 等带有花括号的语句需要跳过自身和自身附属的下一句，故此处若为 if for while 则保留 ifskip 的状态
+			if(arrParts[0] != "if" && arrParts[0] != "for" && arrParts[0] != "while") {
+				ifskip[0] = 0;
 			}
+
+			return 0; // 跳过当前
+		} else if(ifskip[0] == 11) {
+			if(arrParts[0] != "if" && arrParts[0] != "for" && arrParts[0] != "while") {
+				ifskip[0] = 10;
+			}
+		} else if(ifskip[0] == 10) {
+			if(arrParts[0] == "else") {
+				ifskip[0] = 21;
+				return 0; // 反正 else 单独一句，后面没东西，所以直接结束
+			} else {
+				ifskip[0] = 0;
+			}
+		} else if(ifskip[0] == 21) {
+			if(arrParts[0] != "if" && arrParts[0] != "for" && arrParts[0] != "while") {
+				ifskip[0] = 10;
+			}
+			return 0; // 跳过当前
 		}
-		
+		console.log(arrParts);
 		var arrPolish = this.ToRevPolish(arrParts);
 		// console.log("POLISH", arrPolish);
 		
@@ -548,10 +573,11 @@ class Ravings {
 				case "if":
 					var valtemp = this.GetVariable(arrSt[0]);
 					valtemp ??= arrSt[0];
-					if(valtemp == 0) { // 若为假
-						ifskip[0] = true;
+					if(valtemp == 0) { // 若 if 所判断的表达式为假
+						ifskip[0] = 1;
 						return 0;
 					}
+					ifskip[0] = 11;
 					break;
 				default:
 					conti = false;
@@ -587,8 +613,6 @@ class Ravings {
 			}
 		}
 
-		ifskip[0] = false;
-
 		var res = this.GetVariable(arrSt[0]);
 		res ??= arrSt[0];
 		return res;
@@ -598,7 +622,7 @@ class Ravings {
 	RunCuttedCode(arrArrParts) {
 		var res = [];
 		var len = arrArrParts.length;
-		var ifskip = [false];
+		var ifskip = [0]; // 在这里定义而非作为成员变量定义，是为了让递归时候的每一层都有一个自己的 ifskip，而不会影响到别的层
 		for(var iLine = 0; iLine < len; iLine++) {
 			res = this.RunSentence(arrArrParts, iLine, ifskip);
 			// console.log(this.arrVarMaps);
