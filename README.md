@@ -22,7 +22,7 @@
 - [x] 关键字 var 和 赋值
 - [x] 关键字 if
 - [x] 关键字 else
-- [ ] 关键字 while
+- [x] 关键字 while
 - [ ] 关键字 for
 - [ ] 关键字 break
 - [ ] 关键字 continue
