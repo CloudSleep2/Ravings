@@ -23,7 +23,7 @@
 - [x] 关键字 if
 - [x] 关键字 else
 - [x] 关键字 while
-- [ ] 关键字 for
+- [x] 关键字 for
 - [ ] 关键字 break
 - [ ] 关键字 continue
 - [ ] 关键字 function 和 函数调用

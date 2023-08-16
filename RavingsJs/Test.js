@@ -75,11 +75,14 @@ while(i <= 100) {
 var l = 0;
 var k = 0;
 var n = 0;
+var m = 0;
 while(++l < 10)
 	if(1)
 	while(++k < 10)
 		if(0) n++;
-		else n--;
+		else
+		while(++m < 10)
+			n--;
 
 var x = 10;
 var y = 1;
@@ -93,7 +96,19 @@ while(x > 0) {
 	x--;
 }
 	`;
-	console.log(rvs.RunCode(codes[4]));
+	codes[5] = `
+var j = 0;
+for(var i = 1; i <= 100; i++)
+	j += i;
+
+var n = 0;
+for(var l = 0; l < 10; l++)
+	for(var k = 0; k < 10; k++)
+		for(var m = 0; m < 10; m++)
+			if(0) n++;
+			else n--;
+	`;
+	console.log(rvs.RunCode(codes[5]));
 	while(true) {
 		console.log(rvs.arrVarMaps);
 		console.log(rvs.RunCode(await GetInput("> ")));

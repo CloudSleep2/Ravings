@@ -130,8 +130,8 @@ class Ravings {
 	/// @desc 分段括号内的代码，该函数会和 CutCode 轮流调用彼此并递归
 	CutBracket(bracketL, bracketR, str, _begin, len, destArrEnd) {
 		var i = _begin;
-		var bracketNum = 1; // 括号的数量
-		for(var j = i + 1; j <= len; j++) {
+		var bracketNum = 0; // 括号的数量
+		for(var j = i; j <= len; j++) {
 			if(str[j] == bracketR) {
 				bracketNum--;
 				if(bracketNum <= 0) {
@@ -140,9 +140,12 @@ class Ravings {
 					break;
 				}
 			} else if(str[j] == bracketL) {
+				if(bracketNum == 0) {
+					i = j;
+				}
 				bracketNum++;
 			}
-		}console.log([str.substring(i, j)]);
+		}
 		return this.CutCode(str.substring(i, j));
 	}
 
@@ -223,7 +226,15 @@ class Ravings {
 				var ident = str.substring(i, j);
 				res.push(ident);
 				i = j - 1;
-				if(ident == "if" || ident == "for" || ident == "while") {
+				if(ident == "for") {
+					var _newend = [0];
+					res.push(this.CutBracket("(", ";", str, i, len, _newend)[0]);
+					res.push(this.CutBracket("", ";", str, _newend[0] + 1, len, _newend)[0]);
+					res.push(this.CutBracket("", ")", str, _newend[0] + 1, len, _newend)[0]);
+					finalRes.push(res);
+					res = [];
+					i = _newend[0];
+				} else if(ident == "if" || ident == "while") {
 					keyBrace = true;
 					keyBracePrev = true;
 				} else if(ident == "else") {
@@ -535,11 +546,21 @@ class Ravings {
 		3 = 跳过，给该函数看的
 	*/
 	/// @desc 执行一句代码，需要提供一些分段后的数据
+	/// @param {array} arrArrParts 传入 CutCode() 切割好的数据，若传入的只是切割好的数据中其中一句（其中一个下标的元素），则将 iLine 参数设为 -1 或其它负数
 	RunSentence(arrArrParts, iLine, ifskip, inloop) {
-		var arrParts = arrArrParts[iLine];
+		if(arrArrParts == undefined) {
+			return 0;
+		}
+
+		var arrParts = undefined;
+		if(iLine >= 0) {
+			arrParts = arrArrParts[iLine];
+		} else {
+			arrParts = arrArrParts;
+		}
 
 		var len = arrParts.length;
-		console.log("PARTS", iLine, arrParts, this.arrVarMaps[0].get("n"), ifskip, inloop);
+		// console.log("PARTS", iLine, arrParts, this.arrVarMaps[0].get("i"), ifskip, inloop);
 
 		var inloopMax = inloop.length - 1;
 
@@ -597,6 +618,26 @@ class Ravings {
 			return 0;
 		}
 
+		if(arrParts[0] == "for") {
+			var fortmp1 = [], fortmp2 = [];
+			if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
+				this.RunSentence(arrParts[1], -1, fortmp1, fortmp2);
+			} else {
+				this.RunSentence(arrParts[3], -1, fortmp1, fortmp2);
+			}
+
+			var forcheck = this.RunSentence(arrParts[2], -1, fortmp1, fortmp2);
+			var valtemp = this.GetVariable(forcheck);
+			valtemp ??= forcheck;
+			if(valtemp == 0) { // 若 for 所判断的表达式为假
+				inloop[inloopMax] = 3;
+			} else if(inloop[inloopMax] != 2) {
+				inloop.push(2);
+			}
+			
+			return 0;
+		}
+
 		// console.log(arrParts);
 		var arrPolish = this.ToRevPolish(arrParts);
 		// console.log("POLISH", arrPolish);
@@ -628,6 +669,9 @@ class Ravings {
 					var valtemp = this.GetVariable(arrSt[0]);
 					valtemp ??= arrSt[0];
 					if(valtemp == 0) { // 若 while 所判断的表达式为假
+						if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
+							inloop.push(3);
+						}
 						inloop[inloopMax] = 3;
 					} else
 					if(inloop[inloopMax] != 2) {
@@ -682,7 +726,7 @@ class Ravings {
 		for(var iLine = 0; iLine < len; iLine++) {
 			res = this.RunSentence(arrArrParts, iLine, ifskip, inloop);
 			// console.log(this.arrVarMaps);
-			console.log(ifskip, inloop);
+			// console.log(ifskip, inloop);
 
 			inloopMax = inloop.length - 1;
 			
@@ -696,6 +740,7 @@ class Ravings {
 				} else if(inloop[inloopMax] == 3) {
 					if(inloopMax > 1) { // 自己是子循环（别忘了还有个 inloop[0] 保持为 0）
 						inloop.pop();
+						inloop[inloopMax - 1] = 2;
 						iLine = loopiLine[inloopMax - 1];
 					}
 				}
