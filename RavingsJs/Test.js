@@ -44,14 +44,13 @@ if(a--)if(a--)if(a--)if(a--)if(a--);if(a--);a;
 var a = 3;
 var b = 4;
 var c = 5;
+var d = b / c + a * -1;
 if(a > 0) {
-	var d = b / c + a * -1;
 	if(d != 3)
 	if(d != 2 && d != 0)
 	if(d != 3.8 || d < 0)
 	if(d <= 4 && 0) d = 1000;
 	else d = 500;
-	d;
 }
 	`;
 	codes[3] = `
@@ -108,12 +107,59 @@ for(var l = 0; l < 10; l++)
 			if(0) n++;
 			else n--;
 	`;
-	console.log(rvs.RunCode(codes[5]));
+	codes[6] = `
+var j = 0;
+for(var i = 1; i <= 1000000; i++) {
+	j += i;
+}
+	`;
+	console.time("Cut Code");
+	var arrArrParts = rvs.CutCode(codes[6]);
+	console.timeEnd("Cut Code");
+	console.log(arrArrParts);
+	for(var i = 0; i < 100; i++) {
+	console.time("Time");
+	rvs.RunCuttedCode(arrArrParts);
+	console.timeEnd("Time");
+	}
 	while(true) {
 		console.log(rvs.arrVarMaps);
 		console.log(rvs.RunCode(await GetInput("> ")));
 	}
 }
 
+// var n, m;
+// while(1) {
+// 	console.time("STRUCT");
+// 	n = 0;
+// 	m = { a : 0, b : 1, c : 2};
+// 	for(var i = 1 ; i <= 100000000; i++) {
+// 		if(i % 3 == 0) {
+// 			n += m.a;
+// 		} else
+// 		if(i % 3 == 1) {
+// 			n += m.b;
+// 		} else
+// 		if(i % 3 == 2) {
+// 			n += m.c;
+// 		}
+// 	}
+// 	console.timeEnd("STRUCT");
+// 	console.time("ARRAY");
+// 	n = 0;
+// 	m = [0, 1, 2];
+// 	for(var i = 1 ; i <= 100000000; i++) {
+// 		if(i % 3 == 0) {
+// 			n += m[0];
+// 		} else
+// 		if(i % 3 == 1) {
+// 			n += m[1];
+// 		} else
+// 		if(i % 3 == 2) {
+// 			n += m[2];
+// 		}
+// 	}
+// 	console.timeEnd("ARRAY");
+// }
 var rvs = new ravings.Ravings();
 Main(rvs);
