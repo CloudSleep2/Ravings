@@ -117,10 +117,10 @@ for(var i = 1; i <= 1000000; i++) {
 	var arrArrParts = rvs.CutCode(codes[6]);
 	console.timeEnd("Cut Code");
 	console.log(arrArrParts);
-	for(var i = 0; i < 100; i++) {
-	console.time("Time");
-	rvs.RunCuttedCode(arrArrParts);
-	console.timeEnd("Time");
+	for(var i = 0; i < 10; i++) {
+		console.time("Time");
+		rvs.RunCuttedCode(arrArrParts);
+		console.timeEnd("Time");
 	}
 	while(true) {
 		console.log(rvs.arrVarMaps);
@@ -128,38 +128,5 @@ for(var i = 1; i <= 1000000; i++) {
 	}
 }
 
-// var n, m;
-// while(1) {
-// 	console.time("STRUCT");
-// 	n = 0;
-// 	m = { a : 0, b : 1, c : 2};
-// 	for(var i = 1 ; i <= 100000000; i++) {
-// 		if(i % 3 == 0) {
-// 			n += m.a;
-// 		} else
-// 		if(i % 3 == 1) {
-// 			n += m.b;
-// 		} else
-// 		if(i % 3 == 2) {
-// 			n += m.c;
-// 		}
-// 	}
-// 	console.timeEnd("STRUCT");
-// 	console.time("ARRAY");
-// 	n = 0;
-// 	m = [0, 1, 2];
-// 	for(var i = 1 ; i <= 100000000; i++) {
-// 		if(i % 3 == 0) {
-// 			n += m[0];
-// 		} else
-// 		if(i % 3 == 1) {
-// 			n += m[1];
-// 		} else
-// 		if(i % 3 == 2) {
-// 			n += m[2];
-// 		}
-// 	}
-// 	console.timeEnd("ARRAY");
-// }
 var rvs = new ravings.Ravings();
 Main(rvs);

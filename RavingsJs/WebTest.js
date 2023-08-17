@@ -1,38 +1,22 @@
 var rvs = new Ravings();
-
-console.log(rvs.RunCode(`
-var n = 12;
-var m = 7 + n;
-{
-	var k = -1 + n * m;
-	{
-		k /= 2;
-	}
-	++k;
-	{
-		var a = 14 / 1000;
-		var b = a + k;
-		k = b;
-		if(0) {
-			if(3)  {
-				
-			} else {
-				
-			}
-		} else {
-			if(1)  {
-				if(2)  {
-				
-				} else {
-					
-				}
-			} else {
-
-			}
-		}
-	}
+var code = `
+var j = 0;
+for(var i = 1; i <= 1000000; i++) {
+	j += i;
 }
-`));
+`;
+code = `
+{var n = 12;}
+`;
+console.time("Cut Code");
+var arrArrParts = rvs.CutCode(code);
+console.timeEnd("Cut Code");
+console.log(arrArrParts);
+for(var i = 0; i < 100; i++) {
+	console.time("Time");
+	rvs.RunCuttedCode(arrArrParts);
+	console.timeEnd("Time");
+}
 
 function Test(input) { // 该函数可以在浏览器的控制台调用
     console.log(rvs.RunCode(input));
