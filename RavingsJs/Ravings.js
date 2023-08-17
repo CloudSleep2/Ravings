@@ -6,6 +6,29 @@ const ERvsType = {
 	_key : 4, // 关键字
 };
 
+const ERvsKeyword = {
+	_var : 0,
+	_if : 1,
+	_else : 2,
+	_while : 3,
+	_for : 4,
+	_break : 5,
+	_continue : 6,
+	_function : 7,
+	_return : 8,
+};
+const gStructERvsKeywords = {
+	var : ERvsKeyword._var,
+	if : ERvsKeyword._if,
+	else : ERvsKeyword._else,
+	while : ERvsKeyword._while,
+	for : ERvsKeyword._for,
+	break : ERvsKeyword._break,
+	continue : ERvsKeyword._continue,
+	function : ERvsKeyword._function,
+	return : ERvsKeyword._return
+};
+
 const ERvsOp = { // 对于各种运算符的枚举
 	_set : 0 , // =
 	_not : 1 , // !
@@ -49,48 +72,49 @@ const ERvsOp = { // 对于各种运算符的枚举
 	_bl : 39 , // {
 	_br : 40 , // }
 };
-var gMapERvsOps = new Map();
-gMapERvsOps["="] = ERvsOp._set;
-gMapERvsOps["!"] = ERvsOp._not;
-gMapERvsOps["~"] = ERvsOp._rev;
-gMapERvsOps["++x"] = ERvsOp._linc;
-gMapERvsOps["--x"] = ERvsOp._ldec;
-gMapERvsOps["x++"] = ERvsOp._rinc;
-gMapERvsOps["x--"] = ERvsOp._rdec;
-gMapERvsOps["0+"] = ERvsOp._posi;
-gMapERvsOps["0-"] = ERvsOp._nega;
-gMapERvsOps["*"] = ERvsOp._mut;
-gMapERvsOps["/"] = ERvsOp._div;
-gMapERvsOps["%"] = ERvsOp._mod;
-gMapERvsOps["+"] = ERvsOp._add;
-gMapERvsOps["-"] = ERvsOp._min;
-gMapERvsOps["<"] = ERvsOp._les;
-gMapERvsOps["<="] = ERvsOp._leseq;
-gMapERvsOps[">"] = ERvsOp._big;
-gMapERvsOps[">="] = ERvsOp._bigeq;
-gMapERvsOps["=="] = ERvsOp._eqs;
-gMapERvsOps["!="] = ERvsOp._noteq;
-gMapERvsOps["&"] = ERvsOp._band;
-gMapERvsOps["^"] = ERvsOp._bxor;
-gMapERvsOps["|"] = ERvsOp._bor;
-gMapERvsOps["&&"] = ERvsOp._and;
-gMapERvsOps["||"] = ERvsOp._or;
-gMapERvsOps["+="] = ERvsOp._addst;
-gMapERvsOps["-="] = ERvsOp._minst;
-gMapERvsOps["*="] = ERvsOp._mutst;
-gMapERvsOps["/="] = ERvsOp._divst;
-gMapERvsOps["%="] = ERvsOp._modst;
-gMapERvsOps["&="] = ERvsOp._andst;
-gMapERvsOps["|="] = ERvsOp._orst;
-gMapERvsOps["^="] = ERvsOp._xorst;
-gMapERvsOps["~="] = ERvsOp._revst;
-gMapERvsOps["."] = ERvsOp._dot;
-gMapERvsOps["("] = ERvsOp._sl;
-gMapERvsOps[")"] = ERvsOp._sr;
-gMapERvsOps["["] = ERvsOp._ml;
-gMapERvsOps["]"] = ERvsOp._mr;
-gMapERvsOps["{"] = ERvsOp._bl;
-gMapERvsOps["}"] = ERvsOp._br;
+const gStructERvsOps = {
+	"=" : ERvsOp._set,
+	"!" : ERvsOp._not,
+	"~" : ERvsOp._rev,
+	"++x" : ERvsOp._linc,
+	"--x" : ERvsOp._ldec,
+	"x++" : ERvsOp._rinc,
+	"x--" : ERvsOp._rdec,
+	"0+" : ERvsOp._posi,
+	"0-" : ERvsOp._nega,
+	"*" : ERvsOp._mut,
+	"/" : ERvsOp._div,
+	"%" : ERvsOp._mod,
+	"+" : ERvsOp._add,
+	"-" : ERvsOp._min,
+	"<" : ERvsOp._les,
+	"<=" : ERvsOp._leseq,
+	">" : ERvsOp._big,
+	">=" : ERvsOp._bigeq,
+	"==" : ERvsOp._eqs,
+	"!=" : ERvsOp._noteq,
+	"&" : ERvsOp._band,
+	"^" : ERvsOp._bxor,
+	"|" : ERvsOp._bor,
+	"&&" : ERvsOp._and,
+	"||" : ERvsOp._or,
+	"+=" : ERvsOp._addst,
+	"-=" : ERvsOp._minst,
+	"*=" : ERvsOp._mutst,
+	"/=" : ERvsOp._divst,
+	"%=" : ERvsOp._modst,
+	"&=" : ERvsOp._andst,
+	"|=" : ERvsOp._orst,
+	"^=" : ERvsOp._xorst,
+	"~=" : ERvsOp._revst,
+	"." : ERvsOp._dot,
+	"(" : ERvsOp._sl,
+	")" : ERvsOp._sr,
+	"[" : ERvsOp._ml,
+	"]" : ERvsOp._mr,
+	"{" : ERvsOp._bl,
+	"}" : ERvsOp._br
+};
 
 var gRvsMapVar = new Map(); // 装有rvs全局变量的Map
 
@@ -208,19 +232,20 @@ class Ravings {
 
 	/// @desc 是否为关键字
 	IsKeyWord(str) {
-		switch(str) {
-			case "var":
-			case "function":
-			case "if":
-			case "else":
-			case "for":
-			case "while":
-			case "break":
-			case "continue":
-			case "return":
-				return true;
-		}
-		return false;
+		return gStructERvsKeywords[str] != undefined;
+		// switch(str) {
+		// 	case "var":
+		// 	case "function":
+		// 	case "if":
+		// 	case "else":
+		// 	case "for":
+		// 	case "while":
+		// 	case "break":
+		// 	case "continue":
+		// 	case "return":
+		// 		return true;
+		// }
+		// return false;
 	}
 
 	/// @desc 上传一句切割好的代码
@@ -323,7 +348,7 @@ class Ravings {
 				}
 				var ident = str.substring(i, j);
 				if(this.IsKeyWord(ident)) {
-					res.push([ERvsType._key, ident]); // 关键字
+					res.push([ERvsType._key, gStructERvsKeywords[ident]]); // 关键字
 				} else {
 					res.push([ERvsType._id, ident]); // 标识符
 				}
@@ -349,7 +374,7 @@ class Ravings {
 			} else if(iCalChr <= 2) { // 空格
 				continue;
 			} else if(iCalChr <= 10) { // 单字符运算符
-				var opTempRes = gMapERvsOps[str[i]];
+				var opTempRes = gStructERvsOps[str[i]];
 				if(opTempRes != undefined) {
 					res.push([ERvsType._op, opTempRes]);
 				} else {
@@ -402,7 +427,7 @@ class Ravings {
 							break;
 					}
 				}
-				var opTempRes = gMapERvsOps[opTemp];
+				var opTempRes = gStructERvsOps[opTemp];
 				if(opTempRes != undefined) {
 					res.push([ERvsType._op, opTempRes]);
 				} else {
@@ -675,115 +700,130 @@ class Ravings {
 		var inloopMax = inloop.length - 1;
 
 		if(ifskip[0] == 0) {
-			if(arrParts[0][1] == "else") {
+			if(arrParts[0][0] == ERvsType._key && arrParts[0][1] == ERvsKeyword._else) {
 				ifskip[0] = 21;
 				return 0;
 			}
 		} else if(ifskip[0] == 1) { // 若上一句是 if 且为假
 
 			// if for while 等带有花括号的语句需要跳过自身和自身附属的下一句，故此处若为 if for while 则保留 ifskip 的状态
-			if(arrParts[0][1] != "if") {
-				if(arrParts[0][1] != "for" && arrParts[0][1] != "while") {
-					ifskip[0] = 2;
-				} else {
-					ifskip[0] = 0;
-				}
+			if(arrParts[0][0] != ERvsType._key) {
+				ifskip[0] = 2;
 			} else {
-				ifskip[0] = 21;
+				if(arrParts[0][1] != ERvsKeyword._if) {
+					if(arrParts[0][1] != ERvsKeyword._for && arrParts[0][1] != ERvsKeyword._while) {
+						ifskip[0] = 2;
+					} else {
+						ifskip[0] = 0;
+					}
+				} else {
+					ifskip[0] = 21;
+				}
 			}
 
 			return 0; // 跳过当前
 		} else if(ifskip[0] == 2) {
-			if(arrParts[0][1] != "else") {
+			if(arrParts[0][0] != ERvsType._key || (arrParts[0][0] == ERvsType._key && arrParts[0][1] != ERvsKeyword._else)) {
 				ifskip[0] = 0;
 			} else {
 				return 0;
 			}
 		} else if(ifskip[0] == 11) {
-			if(arrParts[0][1] != "if") {
-				if(arrParts[0][1] != "for" && arrParts[0][1] != "while") {
+			if(arrParts[0][0] != ERvsType._key) {
+				ifskip[0] = 10;
+			} else
+			if(arrParts[0][1] != ERvsKeyword._if) {
+				if(arrParts[0][1] != ERvsKeyword._for && arrParts[0][1] != ERvsKeyword._while) {
 					ifskip[0] = 10;
 				} else {
 					ifskip[0] = 0;
 				}
 			}
 		} else if(ifskip[0] == 10) {
-			if(arrParts[0][1] == "else") {
+			if(arrParts[0][0] == ERvsType._key && arrParts[0][1] == ERvsKeyword._else) {
 				ifskip[0] = 21;
 				return 0; // 反正 else 单独一句，后面没东西，所以直接结束
 			} else {
 				ifskip[0] = 0;
 			}
 		} else if(ifskip[0] == 21) {
-			if(arrParts[0][1] != "if" && arrParts[0][1] != "for" && arrParts[0][1] != "while") {
+			if(arrParts[0][0] != ERvsType._key) {
+				ifskip[0] = 10;
+			} else
+			if(arrParts[0][1] != ERvsKeyword._if && arrParts[0][1] != ERvsKeyword._for && arrParts[0][1] != ERvsKeyword._while) {
 				ifskip[0] = 10;
 			}
 			return 0; // 跳过当前
 		}
 
 		if(inloop[inloopMax] == 3) {
-			if(arrParts[0][1] != "if" && arrParts[0][1] != "for" && arrParts[0][1] != "while") {
+			if(arrParts[0][0] != ERvsType._key) {
+				inloop.pop();
+			} else
+			if(arrParts[0][1] != ERvsKeyword._if && arrParts[0][1] != ERvsKeyword._for && arrParts[0][1] != ERvsKeyword._while) {
 				inloop.pop();
 			}
 			return 0;
 		}
 		
-		var conti = true;
-		switch(arrParts[0][1]) {
-			case ERvsOp._bl:
-				if(arrParts[0][0] == ERvsType._op) {
-					this.AddVarMap();
-					var blres = this.RunCuttedCode(arrParts[1][1]);
-					this.RemoveVarMap();
-					return blres;
-				}
-				break;
-			case "var":
-				this.NewVariable(arrParts[1][1]);
-				break;
-			case "if":
-				var ifcheck = this.RunSentence(arrParts[1], -1);
-				var valtemp = this.GetVariable(ifcheck);
-				valtemp ??= ifcheck;
-				if(valtemp == 0) { // 若 if 所判断的表达式为假
-					ifskip[0] = 1;
-					return 0;
-				}
-				ifskip[0] = 11;
-				break;
-			case "while":
-				var whilecheck = this.RunSentence(arrParts[1], -1);
-				var valtemp = this.GetVariable(whilecheck);
-				valtemp ??= whilecheck;
-				if(valtemp == 0) { // 若 while 所判断的表达式为假
-					if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
-						inloop.push(3);
+		var conti = false;
+		if(arrParts[0][0] == ERvsType._op) {
+			if(arrParts[0][1] == ERvsOp._bl) {
+				this.AddVarMap();
+				var blres = this.RunCuttedCode(arrParts[1][1]);
+				this.RemoveVarMap();
+				return blres;
+			}
+		} else if(arrParts[0][0] == ERvsType._key) {
+			conti = true;
+			switch(arrParts[0][1]) {
+				case ERvsKeyword._var:
+					this.NewVariable(arrParts[1][1]);
+					break;
+				case ERvsKeyword._if:
+					var ifcheck = this.RunSentence(arrParts[1], -1);
+					var valtemp = this.GetVariable(ifcheck);
+					valtemp ??= ifcheck;
+					if(valtemp == 0) { // 若 if 所判断的表达式为假
+						ifskip[0] = 1;
+						return 0;
 					}
-					inloop[inloopMax] = 3;
-				} else
-				if(inloop[inloopMax] != 2) {
-					inloop.push(2);
-				}
-				return 0;
-			case "for":
-				if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
-					this.RunSentence(arrParts[1], -1);
-				} else {
-					this.RunSentence(arrParts[3], -1);
-				}
+					ifskip[0] = 11;
+					break;
+				case ERvsKeyword._while:
+					var whilecheck = this.RunSentence(arrParts[1], -1);
+					var valtemp = this.GetVariable(whilecheck);
+					valtemp ??= whilecheck;
+					if(valtemp == 0) { // 若 while 所判断的表达式为假
+						if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
+							inloop.push(3);
+						}
+						inloop[inloopMax] = 3;
+					} else
+					if(inloop[inloopMax] != 2) {
+						inloop.push(2);
+					}
+					return 0;
+				case ERvsKeyword._for:
+					if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
+						this.RunSentence(arrParts[1], -1);
+					} else {
+						this.RunSentence(arrParts[3], -1);
+					}
 
-				var forcheck = this.RunSentence(arrParts[2], -1);
-				var valtemp = this.GetVariable(forcheck);
-				valtemp ??= forcheck;
-				if(valtemp == 0) { // 若 for 所判断的表达式为假
-					inloop[inloopMax] = 3;
-				} else if(inloop[inloopMax] != 2) {
-					inloop.push(2);
-				}
-				
-				return 0;
-			default:
-				conti = false;
+					var forcheck = this.RunSentence(arrParts[2], -1);
+					var valtemp = this.GetVariable(forcheck);
+					valtemp ??= forcheck;
+					if(valtemp == 0) { // 若 for 所判断的表达式为假
+						inloop[inloopMax] = 3;
+					} else if(inloop[inloopMax] != 2) {
+						inloop.push(2);
+					}
+					
+					return 0;
+				default:
+					conti = false;
+			}
 		}
 
 		var i = 0;
@@ -798,7 +838,7 @@ class Ravings {
 		var arrSt = [];
 		for(; i < len; i++) {
 			// console.log("PO", arrParts);console.log("poi", i, arrParts[i]);
-			if(arrParts[i][0] != ERvsType._op && arrParts[i][0] != ERvsType._key) {
+			if(arrParts[i][0] != ERvsType._op) {
 				arrSt.push(arrParts[i]);
 			} else {
 				

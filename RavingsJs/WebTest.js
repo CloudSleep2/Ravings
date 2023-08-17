@@ -5,14 +5,11 @@ for(var i = 1; i <= 1000000; i++) {
 	j += i;
 }
 `;
-code = `
-{var n = 12;}
-`;
 console.time("Cut Code");
 var arrArrParts = rvs.CutCode(code);
 console.timeEnd("Cut Code");
 console.log(arrArrParts);
-for(var i = 0; i < 100; i++) {
+for(var i = 0; i < 10; i++) {
 	console.time("Time");
 	rvs.RunCuttedCode(arrArrParts);
 	console.timeEnd("Time");

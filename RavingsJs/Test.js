@@ -128,5 +128,39 @@ for(var i = 1; i <= 1000000; i++) {
 	}
 }
 
+// var n, m;
+// while(1) {
+// 	console.time("STRUCT");
+// 	n = 0;
+// 	m = { a : 0, b : 1, c : 2};
+// 	for(var i = 1 ; i <= 100000000; i++) {
+// 		if(i % 3 == 0) {
+// 			n += m.a;
+// 		} else
+// 		if(i % 3 == 1) {
+// 			n += m.b;
+// 		} else
+// 		if(i % 3 == 2) {
+// 			n += m.c;
+// 		}
+// 	}
+// 	console.timeEnd("STRUCT");
+// 	console.time("MAP");
+// 	n = 0;
+// 	m = new Map([["a", 0], ["b", 1], ["c", 2]]);
+// 	for(var i = 1 ; i <= 100000000; i++) {
+// 		if(i % 3 == 0) {
+// 			n += m.get("a");
+// 		} else
+// 		if(i % 3 == 1) {
+// 			n += m.get("b");
+// 		} else
+// 		if(i % 3 == 2) {
+// 			n += m.get("c");
+// 		}
+// 	}
+// 	console.timeEnd("MAP");
+// }
+
 var rvs = new ravings.Ravings();
 Main(rvs);
