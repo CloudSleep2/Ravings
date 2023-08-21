@@ -2,8 +2,8 @@ const ERvsType = {
 	_val : 0, // 值
 	_id : 1, // 标识符
 	_op : 2, // 运算符
-	_code : 3, // 代码块或表达式
-	_key : 4, // 关键字
+	_key : 3, // 关键字
+	_goto : 4, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
 };
 
 const ERvsKeyword = {
@@ -18,15 +18,15 @@ const ERvsKeyword = {
 	_return : 8,
 };
 const gStructERvsKeywords = {
-	var : ERvsKeyword._var,
-	if : ERvsKeyword._if,
-	else : ERvsKeyword._else,
-	while : ERvsKeyword._while,
-	for : ERvsKeyword._for,
-	break : ERvsKeyword._break,
-	continue : ERvsKeyword._continue,
-	function : ERvsKeyword._function,
-	return : ERvsKeyword._return
+	"var" : ERvsKeyword._var,
+	"if" : ERvsKeyword._if,
+	"else" : ERvsKeyword._else,
+	"while" : ERvsKeyword._while,
+	"for" : ERvsKeyword._for,
+	"break" : ERvsKeyword._break,
+	"continue" : ERvsKeyword._continue,
+	"function" : ERvsKeyword._function,
+	"return" : ERvsKeyword._return
 };
 
 const ERvsOp = { // 对于各种运算符的枚举
@@ -300,35 +300,66 @@ class Ravings {
 		var finalRes = []; // 这里面会装着许多 res
 		var res = [];
 
-		var keyBrace = false; // 带括号和大括号的关键字，正在扫描括号，例如 if for while，用来给 ; 可以直接结束 if for while 之类的用的
+		var keyBarceLine = 0; // 哪一行
+		var keyBraceLoop = false; // 是否为循环
+		var keyBraceForThird = undefined; // for 的第三个表达式
+		var keyBraceIfType = 0; // 0 = 啥也不是，1 = if，2 = else，3 = else if
+		
+		var arrKeyBraceIfsGoto = []; // 存储一段连续的 if ... else if 的结尾处的 goto 的栈
 
 		var len = str.length;
 		for(var i = 0; i < len; i++) {
 
 			if(str[i] == "{") {
-				keyBrace = false;
-				
+
 				if(res.length != 0) {
 					this.UploadSentence(res, finalRes);
 				}
 				
 				var _newend = [0];
-				res.push([ERvsType._op, ERvsOp._bl]);
-				res.push([ERvsType._code, this.CutBracket("{", "}", str, i, len, _newend)]); // 下标1里存的是递归切割结果
+				// res.push([ERvsType._op, ERvsOp._bl]);
+				var _arrtmp = this.CutBracket("{", "}", str, i, len, _newend);
 				i = _newend[0];
+				var _arrtmplen = _arrtmp.length;
+				for(var j = 0; j < _arrtmplen; j++) {
+					this.UploadSentence(_arrtmp[j], finalRes, false);
+				}
+				
+				if(keyBraceForThird != undefined) {
+					this.UploadSentence(keyBraceForThird, finalRes, false);
+					keyBraceForThird = undefined;
+				}
 
-				this.UploadSentence(res, finalRes, false);
+				if(keyBraceLoop) {
+					keyBraceLoop = false;
+					this.UploadSentence([[ERvsType._goto, keyBarceLine - finalRes.length]], finalRes, false);
+					finalRes[keyBarceLine].push(finalRes.length - keyBarceLine);
+				} else {
+					this.UploadSentence([[ERvsType._goto, 1]], finalRes, false);
+					if(keyBraceIfType != 2) {
+						finalRes[keyBarceLine].push(finalRes.length - keyBarceLine);
+					}
 
+					if(keyBraceIfType == 2 || keyBraceIfType == 3) {
+						var lenifsgoto = arrKeyBraceIfsGoto.length;
+						for(var j = 0; j < lenifsgoto; j++) {
+							var lineifsgoto = arrKeyBraceIfsGoto[j];
+							finalRes[lineifsgoto][0][1] = finalRes.length - lineifsgoto;
+						}
+					}
+					if(keyBraceIfType == 1 || keyBraceIfType == 3) {
+						arrKeyBraceIfsGoto.push(finalRes.length - 1);
+					}
+				}
+
+				keyBraceIfType = 0;
+				
 				continue;
 			}
 
 			if(str[i] == ";") {
 				if(res.length != 0) {
 					this.UploadSentence(res, finalRes);
-				} else
-				if(keyBrace == true) {
-					keyBrace = false;
-					this.UploadSentence([[ERvsType._op, ERvsOp._bl], [ERvsType._code, []]], finalRes, false);
 				}
 				continue;
 			}
@@ -358,20 +389,34 @@ class Ravings {
 				}
 				var ident = str.substring(i, j);
 				if(this.IsKeyWord(ident)) {
-					res.push([ERvsType._key, gStructERvsKeywords[ident]]); // 关键字
+					if(ident != "for") { // for 会到后面单独处理
+						res.push([ERvsType._key, gStructERvsKeywords[ident]]); // 关键字
+					}
 				} else {
 					res.push([ERvsType._id, ident]); // 标识符
 				}
 				i = j - 1;
-				if(ident == "for") {
+				if(ident == "for") { // for 的处理其实是转换成 while
+					
 					var _newend = [0];
-					res.push(this.CutBracket("(", ";", str, i, len, _newend)[0]);
-					res.push(this.CutBracket("", ";", str, _newend[0] + 1, len, _newend)[0]);
-					res.push(this.CutBracket("", ")", str, _newend[0] + 1, len, _newend)[0]);
+					this.UploadSentence(this.CutBracket("(", ";", str, i, len, _newend)[0], finalRes, false);
+					
+					res.push([ERvsType._key, ERvsKeyword._while]);
+					var _arrtmp = this.CutBracket("", ";", str, _newend[0] + 1, len, _newend)[0];
+					var _arrtmplen = _arrtmp.length;
+					for(var j = 0; j < _arrtmplen; j++) {
+						res.push(_arrtmp[j]);
+					}
 					this.UploadSentence(res, finalRes, false);
+
+					keyBraceForThird = this.CutBracket("", ")", str, _newend[0] + 1, len, _newend)[0];
 					i = _newend[0];
+
+					keyBarceLine = finalRes.length - 1;
+					keyBraceLoop = true;
+
 				} else if(ident == "if" || ident == "while") {
-					keyBrace = true;
+
 					var _newend = [0];
 					var _arrtmp = this.CutBracket("(", ")", str, i, len, _newend)[0];
 					var _arrtmplen = _arrtmp.length;
@@ -380,8 +425,21 @@ class Ravings {
 						res.push(_arrtmp[j]);
 					}
 					this.UploadSentence(res, finalRes, false);
+
+					keyBarceLine = finalRes.length - 1;
+					if(ident == "while") {
+						keyBraceLoop = true;
+					} else {
+						if(keyBraceIfType == 2) {
+							keyBraceIfType = 3;
+						} else {
+							keyBraceIfType = 1;
+							arrKeyBraceIfsGoto.length = 0; // 清空 arrKeyBraceIfsGoto
+						}
+					}
+
 				} else if(ident == "else") {
-					keyBrace = true;
+					keyBraceIfType = 2;
 					this.UploadSentence(res, finalRes, false);
 				}
 				continue;
@@ -672,31 +730,12 @@ class Ravings {
 		return arrPo;
 	}
 
-	/* 
-		关于 ifskip，这是一个长度 1 的数组，同时用以输入和输出
-		该参数作为输出时是为了延续到同一层的下一个 if 或 else
-		当函数执行的开始，会判断 ifskip[0] 的值并做出反应：
-		0 = 正常执行
-		1 = 跳过，因为上一句是 if 且为假
-		2 = 上上一句为 if 且为假，这句如果是 else 则执行，如果不是则也依然正常执行并设为 0，该条主要为了 if else 和 while 或 for 嵌套
-		11 = 正常执行，只不过上一句是 if 且为真
-		10 = 正常执行，只不过上上一句是 if 且为真，所以这句如果是 else 则将 ifskip 设为 21，若不为 else 则设为 0
-		21 = 跳过，专门给 else 表示的
-
-		关于 inloop，这是一个长度会变的数组（为了适用于嵌套循环还不写花括号的场景），同时用以输入和输出
-		每进入一层循环，inloop.push() 一个新的元素，每结束一层循环，inloop.pop()
-		该参数作为输出时是为了给调用该函数的 RunCuttedCode() 看的
-		当函数执行结束后，调用该函数的 RunCuttedCode() 会判断 inloop 最后一位的值并做出反应：
-		0 = 正常执行
-		1 = 正常执行，结束后回到上一句，并设为 2（这个 2 是给 for 和 while 看的，如果接下来表达式为假，则设为 3）
-		2 = 正常执行，下一句为循环，所以结束后设为 1
-		3 = 跳过，给该函数看的
-	*/
-	ifskipPh = [0]; // PlaceHolder
-	inloopPh = [0];
+	iLineAddPh = [0]; // PlaceHolder
 	/// @desc 执行一句代码，需要提供一些分段后的数据
 	/// @param {array} arrArrParts 传入 CutCode() 切割好的数据，若传入的只是切割好的数据中其中一句（其中一个下标的元素），则将 iLine 参数设为 -1 或其它负数
-	RunSentence(arrArrParts, iLine, ifskip = this.ifskipPh, inloop = this.inloopPh) {
+	/// @param {real} iLine 执行第几行
+	/// @param {array} iLineAdd 这是一个长度 1 的数组，用以输出
+	RunSentence(arrArrParts, iLine, iLineAdd = this.iLineAddPh) {
 		if(arrArrParts == undefined) {
 			return 0;
 		}
@@ -709,119 +748,28 @@ class Ravings {
 		}
 
 		var len = arrParts.length;
-		// console.log("PARTS", iLine, arrParts, this.arrVarMaps[0].get("i"), ifskip, inloop);
-
-		var inloopMax = inloop.length - 1;
+		// console.log("PARTS", iLine, arrParts, this.arrVarMaps[0].get("i"), iLineAdd);
 
 		var firstType = arrParts[0][0], firstVal = arrParts[0][1];
 		
-		switch(ifskip[0]) {
-			case 0:
-				if(firstType == ERvsType._key && firstVal == ERvsKeyword._else) {
-					ifskip[0] = 21;
-					return 0;
-				}
-				break;
-
-			case 1: // 若上一句是 if 且为假
-
-				// if for while 等带有花括号的语句需要跳过自身和自身附属的下一句，故此处若为 if for while 则保留 ifskip 的状态
-				if(firstType != ERvsType._key) {
-					ifskip[0] = 2;
-				} else {
-					if(firstVal != ERvsKeyword._if) {
-						if(firstVal != ERvsKeyword._for && firstVal != ERvsKeyword._while) {
-							ifskip[0] = 2;
-						} else {
-							// ifskip[0] = 0;
-						}
-					} else {
-						ifskip[0] = 21;
-					}
-				}
-				return 0; // 跳过当前
-
-			case 2:
-				if(firstType != ERvsType._key || (firstType == ERvsType._key && firstVal != ERvsKeyword._else)) {
-					ifskip[0] = 0;
-				} else {
-					return 0;
-				}
-				break;
-
-			case 11:
-				if(firstType != ERvsType._key) {
-					ifskip[0] = 10;
-				} else
-				if(firstVal != ERvsKeyword._if) {
-					if(firstVal != ERvsKeyword._for && firstVal != ERvsKeyword._while) {
-						ifskip[0] = 10;
-					} else {
-						ifskip[0] = 0;
-					}
-				}
-				break;
-		
-			case 10:
-				if(firstType == ERvsType._key && firstVal == ERvsKeyword._else) {
-					ifskip[0] = 21;
-					return 0; // 反正 else 单独一句，后面没东西，所以直接结束
-				} else {
-					ifskip[0] = 0;
-				}
-				break;
-
-			case 21:
-				if(firstType != ERvsType._key) {
-					ifskip[0] = 10;
-				} else
-				if(firstVal != ERvsKeyword._if && firstVal != ERvsKeyword._for && firstVal != ERvsKeyword._while) {
-					ifskip[0] = 10;
-				}
-				return 0; // 跳过当前
-		}
-
-		if(inloop[inloopMax] == 3) {
-			if(firstType != ERvsType._key) {
-				inloop.pop();
-			} else
-			if(firstVal != ERvsKeyword._if && firstVal != ERvsKeyword._for && firstVal != ERvsKeyword._while) {
-				inloop.pop();
-			}
-			return 0;
-		}
-		
 		var conti = false;
-		if(firstType == ERvsType._op) {
-			if(firstVal == ERvsOp._bl) {
-				this.AddVarMap();
-				var blres = this.RunCuttedCode(arrParts[1][1]);
-				this.RemoveVarMap();
-				return blres;
-			}
+		// if(firstType == ERvsType._op) {
+		// 	if(firstVal == ERvsOp._bl) {
+		// 		this.AddVarMap();
+		// 		var blres = this.RunCuttedCode(arrParts[1][1]);
+		// 		this.RemoveVarMap();
+		// 		return blres;
+		// 	}
+		// } else 
+		if(firstType == ERvsType._goto) {
+			iLineAdd[0] = firstVal;
+			return 0;
 		} else if(firstType == ERvsType._key) {
 			conti = true;
 			switch(firstVal) {
 				case ERvsKeyword._var:
 					this.NewVariable(arrParts[1][1]);
 					break;
-				case ERvsKeyword._for:
-					if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
-						this.RunSentence(arrParts[1], -1);
-					} else {
-						this.RunSentence(arrParts[3], -1);
-					}
-
-					var forcheck = this.RunSentence(arrParts[2], -1);
-					var valtemp = this.GetVariable(forcheck);
-					valtemp ??= forcheck;
-					if(valtemp == 0) { // 若 for 所判断的表达式为假
-						inloop[inloopMax] = 3;
-					} else if(inloop[inloopMax] != 2) {
-						inloop.push(2);
-					}
-					
-					return 0;
 				default:
 					conti = false;
 			}
@@ -876,9 +824,7 @@ class Ravings {
 						valtemp = ifcheck[1];
 					}
 					if(valtemp == 0) { // 若 if 所判断的表达式为假
-						ifskip[0] = 1;
-					} else {
-						ifskip[0] = 11;
+						iLineAdd[0] = this.arrStackRun[2];
 					}
 					return 0;
 				case ERvsKeyword._while:
@@ -890,13 +836,7 @@ class Ravings {
 						valtemp = ifcheck[1];
 					}
 					if(valtemp == 0) { // 若 while 所判断的表达式为假
-						if(inloop[inloopMax] == 0 || inloop[inloopMax] == 1) {
-							inloop.push(3);
-						}
-						inloop[inloopMax] = 3;
-					} else
-					if(inloop[inloopMax] != 2) {
-						inloop.push(2);
+						iLineAdd[0] = this.arrStackRun[2];
 					}
 					return 0;
 			}
@@ -915,29 +855,13 @@ class Ravings {
 	RunCuttedCode(arrArrParts) {
 		var res = [];
 		var len = arrArrParts.length;
-		var ifskip = [0]; // 在这里定义而非作为成员变量定义，是为了让递归时候的每一层都有一个自己的 ifskip，而不会影响到别的层
-		var inloop = [0], inloopMax = 0, loopiLine = [0];
+		var iLineAdd = [0];
 		for(var iLine = 0; iLine < len; iLine++) {
-			res = this.RunSentence(arrArrParts, iLine, ifskip, inloop);
+			res = this.RunSentence(arrArrParts, iLine, iLineAdd);
 			// console.log(this.arrVarMaps);
-			// console.log(ifskip, inloop);
-
-			inloopMax = inloop.length - 1;
-			
-			if(inloop[inloopMax] == 2) {
-				inloop[inloopMax] = 1;
-				loopiLine[inloopMax] = iLine - 1;
-			} else if(ifskip[0] != 1 && ifskip[0] != 2) {
-				if(inloop[inloopMax] == 1 && ifskip[0] != 11) {
-					inloop[inloopMax] = 2;
-					iLine = loopiLine[inloopMax];
-				} else if(inloop[inloopMax] == 3) {
-					if(inloopMax > 1) { // 自己是子循环（别忘了还有个 inloop[0] 保持为 0）
-						inloop.pop();
-						inloop[inloopMax - 1] = 2;
-						iLine = loopiLine[inloopMax - 1];
-					}
-				}
+			if(iLineAdd[0] != 0) {
+				iLine += iLineAdd[0] - 1; // 此处写个 - 1 是因为 for 循环的 iLine++
+				iLineAdd[0] = 0;
 			}
 		}
 		return res;
