@@ -178,17 +178,37 @@ if(0) {
 }
 n = 1;
 	`;
+	codes[10] = `
+var n = 0;
+var m = 0;
+var k = 0;
+for(var i = 0; i < 10; i++) {
+	m += i;
+	if(i % 2 == 0) {
+		var j = 0;
+		while(j < 10) {
+			if(j == 7) {
+				break;
+			}
+			k++;
+			j++;
+		}
+		continue;
+	}
+	n += i;
+}
+	`;
 	console.time("Cut Code");
-	rvs.Parse(codes[9]);
+	rvs.Parse(codes[10]);
 	console.timeEnd("Cut Code");
 	console.log(rvs.executables);
 	for(var i = 0; i < 10; i++) {
-		console.time("Time");
-		for(var j = 0; j < 1000000; j++) {
+		// console.time("Time");
+		// for(var j = 0; j < 1000000; j++) {
 			rvs.Run();
 			// rvs.RunSentence(arrArrParts[0], -1, rvs.ifskipPh, rvs.inloopPh);
-		}
-		console.timeEnd("Time");
+		// }
+		// console.timeEnd("Time");
 	}
 	while(true) {
 		console.log(rvs.arrVarMaps);

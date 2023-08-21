@@ -269,7 +269,7 @@ class Ravings {
 	}
 	
 	/// @desc 分段括号内的代码，该函数会和 CutCode 轮流调用彼此并递归
-	CutBracket(bracketL, bracketR, str, _begin, len, destArrEnd) {
+	CutBracket(bracketL, bracketR, str, _begin, len, destArrEnd, loopBeginLine, arrBreak, arrConti) {
 		var i = _begin;
 		var bracketNum = 0; // 括号的数量
 		for(var j = i; j <= len; j++) {
@@ -287,7 +287,7 @@ class Ravings {
 				bracketNum++;
 			}
 		}
-		return this.CutCode(str.substring(i, j));
+		return this.CutCode(str.substring(i, j), loopBeginLine, arrBreak, arrConti);
 	}
 
 	strCalcChars = 
@@ -296,12 +296,15 @@ class Ravings {
 		"<>/*+-=%!&|^~"; // 11 ~ 23
 	/// @desc 分段代码成句子
 	/// @param {string} str
-	CutCode(str) {
+	/// @param {real} loopBeginLine 给 if 里面的 break 和 continue 看看上一个 for 或 while 在哪并以此来算出自身的行号，递归往内传参数用的
+	/// @param {array} arrBreak 递归往外传参数用的
+	/// @param {array} arrConti 递归往外传参数用的
+	CutCode(str, loopBeginLine = 0, arrBreak = [], arrConti = []) {
 		var finalRes = []; // 这里面会装着许多 res
 		var res = [];
 
 		var keyBarceLine = 0; // 哪一行
-		var keyBraceLoop = false; // 是否为循环
+		var keyBraceLoop = 0; // 是否为循环，0 = 非循环，1 = while，2 = for
 		var keyBraceForThird = undefined; // for 的第三个表达式
 		var keyBraceIfType = 0; // 0 = 啥也不是，1 = if，2 = else，3 = else if
 		
@@ -318,7 +321,13 @@ class Ravings {
 				
 				var _newend = [0];
 				// res.push([ERvsType._op, ERvsOp._bl]);
-				var _arrtmp = this.CutBracket("{", "}", str, i, len, _newend);
+				var _arrtmp = undefined;
+				var _tmpArrBreak = [], _tmpArrConti = [];
+				if(keyBraceLoop > 0) {
+					_arrtmp = this.CutBracket("{", "}", str, i, len, _newend, 0, _tmpArrBreak, _tmpArrConti);
+				} else {
+					_arrtmp = this.CutBracket("{", "}", str, i, len, _newend, loopBeginLine + finalRes.length, arrBreak, arrConti);
+				}
 				i = _newend[0];
 				var _arrtmplen = _arrtmp.length;
 				for(var j = 0; j < _arrtmplen; j++) {
@@ -330,11 +339,27 @@ class Ravings {
 					keyBraceForThird = undefined;
 				}
 
-				if(keyBraceLoop) {
-					keyBraceLoop = false;
+				if(keyBraceLoop > 0) {
+					
 					this.UploadSentence([[ERvsType._goto, keyBarceLine - finalRes.length]], finalRes, false);
 					finalRes[keyBarceLine].push(finalRes.length - keyBarceLine);
+
+					// break 的处理
+					for(var j = _tmpArrBreak.length - 1; j >= 0; j--) {
+						var _jline = keyBarceLine + _tmpArrBreak[j];
+						finalRes[_jline][0][1] = finalRes.length - _jline;
+					}
+
+					// continue 的处理
+					for(var j = _tmpArrConti.length - 1; j >= 0; j--) {
+						var _jline = keyBarceLine + _tmpArrConti[j];
+						finalRes[_jline][0][1] = finalRes.length - _jline - (keyBraceLoop == 2 ? 2 : 1);
+					}
+					
+					keyBraceLoop = 0;
+
 				} else {
+
 					this.UploadSentence([[ERvsType._goto, 1]], finalRes, false);
 					if(keyBraceIfType != 2) {
 						finalRes[keyBarceLine].push(finalRes.length - keyBarceLine);
@@ -389,58 +414,76 @@ class Ravings {
 				}
 				var ident = str.substring(i, j);
 				if(this.IsKeyWord(ident)) {
-					if(ident != "for") { // for 会到后面单独处理
+					if(ident != "for" && ident != "break" && ident != "continue") { // for 会到后面单独处理
 						res.push([ERvsType._key, gStructERvsKeywords[ident]]); // 关键字
 					}
 				} else {
 					res.push([ERvsType._id, ident]); // 标识符
 				}
 				i = j - 1;
-				if(ident == "for") { // for 的处理其实是转换成 while
+
+				switch(ident) {
+					case "for": // for 的处理其实是转换成 while
 					
-					var _newend = [0];
-					this.UploadSentence(this.CutBracket("(", ";", str, i, len, _newend)[0], finalRes, false);
-					
-					res.push([ERvsType._key, ERvsKeyword._while]);
-					var _arrtmp = this.CutBracket("", ";", str, _newend[0] + 1, len, _newend)[0];
-					var _arrtmplen = _arrtmp.length;
-					for(var j = 0; j < _arrtmplen; j++) {
-						res.push(_arrtmp[j]);
-					}
-					this.UploadSentence(res, finalRes, false);
-
-					keyBraceForThird = this.CutBracket("", ")", str, _newend[0] + 1, len, _newend)[0];
-					i = _newend[0];
-
-					keyBarceLine = finalRes.length - 1;
-					keyBraceLoop = true;
-
-				} else if(ident == "if" || ident == "while") {
-
-					var _newend = [0];
-					var _arrtmp = this.CutBracket("(", ")", str, i, len, _newend)[0];
-					var _arrtmplen = _arrtmp.length;
-					i = _newend[0];
-					for(var j = 0; j < _arrtmplen; j++) {
-						res.push(_arrtmp[j]);
-					}
-					this.UploadSentence(res, finalRes, false);
-
-					keyBarceLine = finalRes.length - 1;
-					if(ident == "while") {
-						keyBraceLoop = true;
-					} else {
-						if(keyBraceIfType == 2) {
-							keyBraceIfType = 3;
-						} else {
-							keyBraceIfType = 1;
-							arrKeyBraceIfsGoto.length = 0; // 清空 arrKeyBraceIfsGoto
+						var _newend = [0];
+						this.UploadSentence(this.CutBracket("(", ";", str, i, len, _newend)[0], finalRes, false);
+						
+						res.push([ERvsType._key, ERvsKeyword._while]);
+						var _arrtmp = this.CutBracket("", ";", str, _newend[0] + 1, len, _newend)[0];
+						var _arrtmplen = _arrtmp.length;
+						for(var j = 0; j < _arrtmplen; j++) {
+							res.push(_arrtmp[j]);
 						}
-					}
+						this.UploadSentence(res, finalRes, false);
 
-				} else if(ident == "else") {
-					keyBraceIfType = 2;
-					this.UploadSentence(res, finalRes, false);
+						keyBraceForThird = this.CutBracket("", ")", str, _newend[0] + 1, len, _newend)[0];
+						i = _newend[0];
+
+						keyBarceLine = finalRes.length - 1;
+						keyBraceLoop = 2;
+
+						break;
+
+					case "if":
+					case "while":
+
+						var _newend = [0];
+						var _arrtmp = this.CutBracket("(", ")", str, i, len, _newend)[0];
+						var _arrtmplen = _arrtmp.length;
+						i = _newend[0];
+						for(var j = 0; j < _arrtmplen; j++) {
+							res.push(_arrtmp[j]);
+						}
+						this.UploadSentence(res, finalRes, false);
+
+						keyBarceLine = finalRes.length - 1;
+						if(ident == "while") {
+							keyBraceLoop = 1;
+						} else {
+							if(keyBraceIfType == 2) {
+								keyBraceIfType = 3;
+							} else {
+								keyBraceIfType = 1;
+								arrKeyBraceIfsGoto.length = 0; // 清空 arrKeyBraceIfsGoto
+							}
+						}
+
+						break;
+
+					case "else":
+						keyBraceIfType = 2;
+						this.UploadSentence(res, finalRes, false);
+						break;
+
+					case "break":
+						this.UploadSentence([[ERvsType._goto, 0]], finalRes, false);
+						arrBreak.push(finalRes.length + loopBeginLine);
+						break;
+
+					case "continue":
+						this.UploadSentence([[ERvsType._goto, 0]], finalRes, false);
+						arrConti.push(finalRes.length + loopBeginLine);
+						break;
 				}
 				continue;
 			} else if(iCalChr <= 2) { // 空格

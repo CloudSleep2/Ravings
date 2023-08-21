@@ -24,8 +24,8 @@
 - [x] 关键字 else
 - [x] 关键字 while
 - [x] 关键字 for
-- [ ] 关键字 break
-- [ ] 关键字 continue
+- [x] 关键字 break
+- [x] 关键字 continue
 - [ ] 关键字 function 和 函数调用
 - [ ] 关键字 return
 - [ ] 数组 []
