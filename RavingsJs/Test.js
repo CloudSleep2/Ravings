@@ -210,7 +210,7 @@ for(;;) {
 	`;
 	codes[12] = `
 var str = "114";
-str += " Hello,\\nworld!\\\" " + "1 + 1 = 2!";
+str += " He\\vllo,\\nwo\\frm\\\bld!\\\" " + "1 + 1 = 2!";
 str += "
 	Line
 AAAA

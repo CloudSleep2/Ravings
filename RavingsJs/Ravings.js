@@ -409,14 +409,20 @@ class Ravings {
 							case "t":
 								strj = "\t";
 								break;
-							case "\"":
-								strj = "\"";
-								break;
-							case "\f":
+							case "f":
 								strj = "\f";
 								break;
-							case "\r":
+							case "r":
 								strj = "\r";
+								break;
+							case "b":
+								strj = "\b";
+								break;
+							case "v":
+								strj = "\v";
+								break;
+							case "\"":
+								strj = "\"";
 								break;
 							case "\\":
 								strj = "\\";
