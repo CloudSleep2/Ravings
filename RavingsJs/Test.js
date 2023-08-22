@@ -198,15 +198,26 @@ for(var i = 0; i < 10; i++) {
 	n += i;
 }
 	`;
-	console.time("Cut Code");
-	rvs.Parse(codes[10]);
-	console.timeEnd("Cut Code");
+	codes[11] = `
+var i = 0;
+for(;;) {
+	if(i == 10) {
+		break;
+	} else {
+		i++;
+	}
+}
+	`;
+	console.time("Parse");
+	rvs.Parse(codes[11]);
+	console.timeEnd("Parse");
+	
 	console.log(rvs.executables);
+
 	for(var i = 0; i < 10; i++) {
 		// console.time("Time");
 		// for(var j = 0; j < 1000000; j++) {
 			rvs.Run();
-			// rvs.RunSentence(arrArrParts[0], -1, rvs.ifskipPh, rvs.inloopPh);
 		// }
 		// console.timeEnd("Time");
 	}

@@ -426,13 +426,20 @@ class Ravings {
 					case "for": // for 的处理其实是转换成 while
 					
 						var _newend = [0];
-						this.UploadSentence(this.CutBracket("(", ";", str, i, len, _newend)[0], finalRes, false);
+						var _arrtmp = this.CutBracket("(", ";", str, i, len, _newend);
+						if(_arrtmp.length > 0) {
+							this.UploadSentence(_arrtmp[0], finalRes, false);
+						}
 						
 						res.push([ERvsType._key, ERvsKeyword._while]);
-						var _arrtmp = this.CutBracket("", ";", str, _newend[0] + 1, len, _newend)[0];
-						var _arrtmplen = _arrtmp.length;
-						for(var j = 0; j < _arrtmplen; j++) {
-							res.push(_arrtmp[j]);
+						_arrtmp = this.CutBracket("", ";", str, _newend[0] + 1, len, _newend);
+						if(_arrtmp.length == 0) {
+							res.push([0, 1]);
+						} else {
+							var _arrtmplen = _arrtmp[0].length;
+							for(var j = 0; j < _arrtmplen; j++) {
+								res.push(_arrtmp[0][j]);
+							}
 						}
 						this.UploadSentence(res, finalRes, false);
 
@@ -440,7 +447,13 @@ class Ravings {
 						i = _newend[0];
 
 						keyBarceLine = finalRes.length - 1;
-						keyBraceLoop = 2;
+
+						if(keyBraceForThird.length == 0) {
+							keyBraceForThird = undefined;
+							keyBraceLoop = 1;
+						} else {
+							keyBraceLoop = 2;
+						}
 
 						break;
 
