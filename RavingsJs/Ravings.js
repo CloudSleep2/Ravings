@@ -1,9 +1,10 @@
 const ERvsType = {
 	_val : 0, // 值
-	_id : 1, // 标识符
-	_op : 2, // 运算符
-	_key : 3, // 关键字
-	_goto : 4, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
+	_str : 1, // 字符串
+	_id : 2, // 标识符
+	_op : 3, // 运算符
+	_key : 4, // 关键字
+	_goto : 5, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
 };
 
 const ERvsKeyword = {
@@ -71,6 +72,7 @@ const ERvsOp = { // 对于各种运算符的枚举
 	_mr : 38 , // ]
 	_bl : 39 , // {
 	_br : 40 , // }
+	_cm : 41 , // ,
 };
 const gStructERvsOps = {
 	"=" : ERvsOp._set,
@@ -113,7 +115,8 @@ const gStructERvsOps = {
 	"[" : ERvsOp._ml,
 	"]" : ERvsOp._mr,
 	"{" : ERvsOp._bl,
-	"}" : ERvsOp._br
+	"}" : ERvsOp._br,
+	"," : ERvsOp._cm,
 };
 
 var gRvsMapVar = new Map(); // 装有rvs全局变量的Map
@@ -386,6 +389,52 @@ class Ravings {
 				if(res.length != 0) {
 					this.UploadSentence(res, finalRes);
 				}
+				continue;
+			}
+
+			if(str[i] == "\"") {
+				var _strtmp = "";
+				for(var j = i + 1; j < len; j++) {
+					var strj = str[j];
+
+					if(strj == "\\") {
+						j++;
+						switch(str[j]) {
+							case "n":
+								strj = "\n";
+								break;
+							case "0":
+								strj = "\0";
+								break;
+							case "t":
+								strj = "\t";
+								break;
+							case "\"":
+								strj = "\"";
+								break;
+							case "\f":
+								strj = "\f";
+								break;
+							case "\r":
+								strj = "\r";
+								break;
+							case "\\":
+								strj = "\\";
+								break;
+							default:
+								j--;
+						}
+					} else
+					if(strj == "\"") {
+						break;
+					}
+
+					_strtmp += strj;
+				}
+				// _strtmp = str.substring(i + 1, j);
+				console.log(_strtmp);
+				i = j;
+				res.push([ERvsType._str, _strtmp]);
 				continue;
 			}
 
@@ -781,6 +830,14 @@ class Ravings {
 
 		for(var i = arrSt.length; i > 0; i--) {
 			arrPo.push(arrSt.pop());
+		}
+
+		for(var i = arrPo.length - 1; i >= 0; i--) { // 剔除掉所有逗号
+			if(arrPo[i][0] == ERvsType._op) {
+				if(arrPo[i][1] == ERvsOp._cm) {
+					arrPo.splice(i, 1);
+				}
+			}
 		}
 
 		return arrPo;

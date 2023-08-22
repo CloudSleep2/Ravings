@@ -208,18 +208,28 @@ for(;;) {
 	}
 }
 	`;
+	codes[12] = `
+var str = "114";
+str += " Hello,\\nworld!\\\" " + "1 + 1 = 2!";
+str += "
+	Line
+AAAA
+			~~~~
+";
+	`;
 	console.time("Parse");
-	rvs.Parse(codes[11]);
+	rvs.Parse(codes[12]);
 	console.timeEnd("Parse");
 	
 	console.log(rvs.executables);
 
-	for(var i = 0; i < 10; i++) {
+	for(var i = 0; i < 1; i++) {
 		// console.time("Time");
 		// for(var j = 0; j < 1000000; j++) {
 			rvs.Run();
 		// }
 		// console.timeEnd("Time");
+		console.log(rvs.GetVariable("str"));
 	}
 	while(true) {
 		console.log(rvs.arrVarMaps);
