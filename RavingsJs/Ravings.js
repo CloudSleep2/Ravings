@@ -1,10 +1,13 @@
+const { it } = require("node:test");
+
 const ERvsType = {
 	_val : 0, // 值
-	_str : 1, // 字符串
-	_id : 2, // 标识符
-	_op : 3, // 运算符
-	_key : 4, // 关键字
-	_goto : 5, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
+	_id : 1, // 标识符
+	_op : 2, // 运算符
+	_key : 3, // 关键字
+	_goto : 4, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
+	_str : 5, // 字符串
+	_arr : 6, // 数组
 };
 
 const ERvsKeyword = {
@@ -73,6 +76,7 @@ const ERvsOp = { // 对于各种运算符的枚举
 	_bl : 39 , // {
 	_br : 40 , // }
 	_cm : 41 , // ,
+	_mlnew : 42, // [new // Create Array Head
 };
 const gStructERvsOps = {
 	"=" : ERvsOp._set,
@@ -117,6 +121,7 @@ const gStructERvsOps = {
 	"{" : ERvsOp._bl,
 	"}" : ERvsOp._br,
 	"," : ERvsOp._cm,
+	"[new" : ERvsOp._mlnew,
 };
 
 var gRvsMapVar = new Map(); // 装有rvs全局变量的Map
@@ -559,6 +564,23 @@ class Ravings {
 			} else if(iCalChr <= 10) { // 单字符运算符
 				var opTempRes = gStructERvsOps[str[i]];
 				if(opTempRes != undefined) {
+
+					var isNewArrOrObj = false;
+					if(res.length > 0) {
+						if(res[res.length - 1][0] != ERvsType._id) {
+							isNewArrOrObj = true;
+						}
+					} else {
+						isNewArrOrObj = true;
+					}
+					if(isNewArrOrObj) {
+						switch(str[i]) {
+							case "[":
+								opTempRes = ERvsOp._mlnew;
+								break;
+						}
+					}
+
 					res.push([ERvsType._op, opTempRes]);
 				} else {
 					res.push([ERvsType._op, str[i]]);
@@ -625,7 +647,7 @@ class Ravings {
 		return finalRes;
 	}
 
-	/// @desc 获取指令为有左右值(0)，还是仅有右值(1)，还是仅有左值(2)
+	/// @desc 获取指令为有左右值(0)，还是仅有右值(1)，还是仅有左值(2)，还是跳过(3)
 	GetOpSide(op) {
 		switch(op) {
 			case ERvsOp._posi:
@@ -638,19 +660,19 @@ class Ravings {
 			case ERvsOp._rinc:
 			case ERvsOp._rdec:
 				return 2; // 仅有左值
+			case ERvsOp._cm:
+			case ERvsOp._mlnew:
+			case ERvsOp._mr:
+				return 3; // 跳过
 		}
 		return 0; // 有左值也有右值
 	}
 
 	/// @desc 执行一个命令
-	RunOperation(op, lval, rval) {
+	RunOperation(op, lvalData, rvalData) {
 		var res = undefined;
 		var lres = undefined;
 		var rres = undefined;
-
-		var lvalData = this.GetVariable(lval), rvalData = this.GetVariable(rval);
-		lvalData ??= lval;
-		rvalData ??= rval;
 
 		switch(op) {
 			case ERvsOp._posi:
@@ -779,6 +801,8 @@ class Ravings {
 		var arrSt = []; // Stack
 		var arrPo = []; // Reverser Polish
 
+		var opMl_arrStLen = 0; // 遇到 Op._cm、Op._ml、Op._mr 时 arrSt 的长度
+
 		var len = arr.length;
 		for(var i = 0; i < len; i++) {
 			var val = arr[i];
@@ -792,19 +816,36 @@ class Ravings {
 				arrPo.push(arr[i]); // 关键字直接入逆波兰式
 			} else
 			if(val[0] == ERvsType._op) { // 若为运算符
+				if(val[1] == ERvsOp._mlnew) { // 左中括号（创建数组用）
+					if(opMl_arrStLen > 0)
+					for(var j = arrSt.length; j > opMl_arrStLen; j--) {
+						arrPo.push(arrSt.pop());
+					}
+					arrPo.push(val);
+					opMl_arrStLen = arrSt.length;
+				} else
+				if(val[1] == ERvsOp._cm || val[1] == ERvsOp._mr) { // 右中括号（创建数组用）
+					for(var j = arrSt.length; j > opMl_arrStLen; j--) {
+						arrPo.push(arrSt.pop());
+					}
+					arrPo.push(val);
+					opMl_arrStLen = arrSt.length;
+				} else
 				if(val[1] == ERvsOp._sl) { // 左括号直接入栈
 					arrSt.push(val);
-				} else if(val[1] == ERvsOp._sr) { // 如果是右括号
+				} else
+				if(val[1] == ERvsOp._sr) { // 如果是右括号
 					// 将栈里最后一个左括号到当前操作之间的所有操作都移入逆波兰式
 					for(var j = arrSt.length; j > 0; j--) {
 						var temp = arrSt.pop();
-						if(temp[1] == ERvsOp._sl && val[1] == ERvsOp._sr) {
+						if(temp[1] == ERvsOp._sl) {
 							break;
 						} else {
 							arrPo.push(temp);
 						}
 					}
-				} else if(arrSt.length > 0) { // 栈不为空
+				} else
+				if(arrSt.length > 0) { // 栈不为空
 					var stLast = arrSt[arrSt.length - 1];
 					while(
 						stLast[1] != ERvsOp._sl
@@ -834,19 +875,111 @@ class Ravings {
 			}
 		}
 
-		for(var i = arrSt.length; i > 0; i--) {
+		for(var j = arrSt.length; j > 0; j--) {
 			arrPo.push(arrSt.pop());
 		}
 
-		for(var i = arrPo.length - 1; i >= 0; i--) { // 剔除掉所有逗号
-			if(arrPo[i][0] == ERvsType._op) {
-				if(arrPo[i][1] == ERvsOp._cm) {
-					arrPo.splice(i, 1);
+		// for(var i = arrPo.length - 1; i >= 0; i--) { // 剔除掉所有逗号
+		// 	if(arrPo[i][0] == ERvsType._op) {
+		// 		if(arrPo[i][1] == ERvsOp._cm) {
+		// 			arrPo.splice(i, 1);
+		// 		}
+		// 	}
+		// }
+
+		return arrPo;
+	}
+
+	/// @desc 执行逆波兰式，结果位于 destarr
+	RunRevPolish(arrParts, i, len, destarr) {
+		var iTop = -1;
+		for(; i < len; i++) {
+			var part = arrParts[i];
+			// console.log("PO", arrParts);console.log("poi", i, part);
+			if(part[0] != ERvsType._op) {
+				destarr[++iTop] = part;
+			} else {
+				if(part[1] == ERvsOp._mlnew) {
+					i = this.MakeArray(arrParts, i + 1, len, destarr, ++iTop);
+				}
+
+				var opSide = this.GetOpSide(part[1]);
+				// console.log("st", opSide, part, destarr, iTop);
+				
+				if(opSide == 3) {
+					continue;
+				}
+
+				var rval = 0;
+				var lval = 0;
+				var rvalSrc = 0;
+				var lvalSrc = 0;
+				if(opSide != 2) {
+					var _tmppart = destarr[iTop--];
+					rvalSrc = _tmppart[1];
+					if(_tmppart[0] == ERvsType._id) {
+						rval = this.GetVariable(rvalSrc);
+					} else {
+						rval = rvalSrc;
+					}
+				}
+				if(opSide != 1) {
+					var _tmppart = destarr[iTop--];
+					lvalSrc = _tmppart[1];
+					if(_tmppart[0] == ERvsType._id) {
+						lval = this.GetVariable(lvalSrc);
+					} else {
+						lval = lvalSrc;
+					}
+				}
+				// console.log({op: part[1], lval, rval});
+				var opRes = this.RunOperation(part[1], lval, rval);
+				destarr[++iTop] = [ERvsType._val, opRes[0]];
+
+				if(opRes[1] != undefined) {
+					this.SetVariable(lvalSrc, opRes[1]);
+				}
+				if(opRes[2] != undefined) {
+					this.SetVariable(rvalSrc, opRes[2]);
+				}
+			}
+		}
+		return iTop;
+	}
+
+	/// @desc 根据 ERvsOp._mlnew 和 ERvsOp._mr 生成一个新的数组
+	MakeArray(arrParts, i, len, destarr, destiTop) {
+		var tmparr = [];
+		var l = i;
+		var _mlnewNum = 1;
+		for(; i < len; i++) {
+			if(arrParts[i][0] == ERvsType._op) {
+				if(arrParts[i][1] == ERvsOp._ml || arrParts[i][1] == ERvsOp._mlnew) {
+					_mlnewNum++;
+				}
+				if(arrParts[i][1] == ERvsOp._mr) {
+					_mlnewNum--;
+					if(_mlnewNum == 0) {
+						break;
+					}
 				}
 			}
 		}
 
-		return arrPo;
+		var iTop = this.RunRevPolish(arrParts, l, i, tmparr);
+
+		tmparr.splice(iTop + 1);
+		for(var j = tmparr.length - 1; j >= 0; j--) {
+			if(tmparr[j][0] == ERvsType._id) {
+				tmparr[j][0] = ERvsType._val;
+				tmparr[j][1] = this.GetVariable(tmparr[j][1]);
+			}
+		}
+
+		destarr[destiTop] = [ERvsType._arr, tmparr];
+		console.log({l, i, iTop});
+		console.log(tmparr);
+		return i;
 	}
 
 	iLineAddPh = [0]; // PlaceHolder
@@ -854,7 +987,7 @@ class Ravings {
 	/// @param {array} arrArrParts 传入 CutCode() 切割好的数据，若传入的只是切割好的数据中其中一句（其中一个下标的元素），则将 iLine 参数设为 -1 或其它负数
 	/// @param {real} iLine 执行第几行
 	/// @param {array} iLineAdd 这是一个长度 1 的数组，用以输出
-	RunSentence(arrArrParts, iLine, iLineAdd = this.iLineAddPh) {
+	RunSentence(arrArrParts, iLine, iLineAdd = this.iLineAddPh, i = 0, len = undefined) {
 		if(arrArrParts == undefined) {
 			return 0;
 		}
@@ -866,7 +999,7 @@ class Ravings {
 			arrParts = arrArrParts;
 		}
 
-		var len = arrParts.length;
+		len ??= arrParts.length;
 		// console.log("PARTS", iLine, arrParts, this.arrVarMaps[0].get("i"), iLineAdd);
 
 		var firstType = arrParts[0][0], firstVal = arrParts[0][1];
@@ -894,41 +1027,12 @@ class Ravings {
 			}
 		}
 // this.arrStackRun[0] = arrArrParts[0];
+
 		// 执行逆波兰式
-		var iTop = -1;
-		var i = 0;
 		if(conti) {
-			i = 1;
+			i++;
 		}
-		for(; i < len; i++) {
-			// console.log("PO", arrParts);console.log("poi", i, arrParts[i]);
-			if(arrParts[i][0] != ERvsType._op) {
-				this.arrStackRun[++iTop] = arrParts[i];
-			} else {
-				var rval = 0;
-				var lval = 0;
-
-				var opSide = this.GetOpSide(arrParts[i][1]);
-				// console.log("st", opSide, arrParts[i], this.arrStackRun, iTop);
-				if(opSide != 2) {
-					rval = this.arrStackRun[iTop--];
-				}
-				if(opSide != 1) {
-					lval = this.arrStackRun[iTop--];
-				}
-				// console.log({op:arrParts[i][1], lval, rval});
-
-				var opRes = this.RunOperation(arrParts[i][1], lval[1], rval[1]);
-				this.arrStackRun[++iTop] = [ERvsType._val, opRes[0]];
-
-				if(opRes[1] != undefined) {
-					this.SetVariable(lval[1], opRes[1]);
-				}
-				if(opRes[2] != undefined) {
-					this.SetVariable(rval[1], opRes[2]);
-				}
-			}
-		}
+		this.RunRevPolish(arrParts, i, len, this.arrStackRun);
 		
 		var firstStackRun = this.arrStackRun[0];
 		if(firstStackRun[0] == ERvsType._key) {

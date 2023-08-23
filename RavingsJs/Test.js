@@ -217,8 +217,13 @@ AAAA
 			~~~~
 ";
 	`;
+	codes[13] = `
+var n = 10;
+var m = 2;
+var arr = [1 + 6, 7 - (m * 3), [114 + 514, n], 9 * n / m];
+	`;
 	console.time("Parse");
-	rvs.Parse(codes[12]);
+	rvs.Parse(codes[13]);
 	console.timeEnd("Parse");
 	
 	console.log(rvs.executables);
@@ -229,7 +234,10 @@ AAAA
 			rvs.Run();
 		// }
 		// console.timeEnd("Time");
-		console.log(rvs.GetVariable("str"));
+		var arr = rvs.GetVariable("arr");
+		for(var i = 0; i < arr.length; i++) {
+			console.log("[", arr[i][0], ",", arr[i][1], "]");
+		}
 	}
 	while(true) {
 		console.log(rvs.arrVarMaps);
