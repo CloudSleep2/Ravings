@@ -220,15 +220,37 @@ AAAA
 	codes[13] = `
 var n = 10;
 var m = 2;
-var w = [3 * 2, n];
 var arr = [1 + 6, 7 - (m * 3), [114 + 514, n], 9 * n / m];
+n = arr[2 + 1];
+m = arr[1 + 1][0];
+var k = [arr[0] + arr[2][1], [arr[0] * n, m]];
 	`;
+	codes[14] = `
+var a = [114];
+var b = [a[0]];
+	`;
+
+	var testindex = 13;
 	console.time("Parse");
-	rvs.Parse(codes[13]);
+	rvs.Parse(codes[testindex]);
 	console.timeEnd("Parse");
 	
-	console.log(rvs.executables);
-
+	/* 适用于 codes[14] 测试样例 */
+	// 用于测试为了读取 var b 那一句里后面那个 a[0] 里的 数字0 一共需要越过几层数组
+	if(testindex == 14) {
+		console.log(rvs.executables);
+		console.log(rvs.executables[1]);
+		console.log(rvs.executables[1][2]);
+		console.log(rvs.executables[1][2][1]);
+		console.log(rvs.executables[1][2][1][0]);
+		console.log(rvs.executables[1][2][1][0][0]);
+		console.log(rvs.executables[1][2][1][0][0][1]);
+		console.log(rvs.executables[1][2][1][0][0][1][1]);
+		console.log(rvs.executables[1][2][1][0][0][1][1][0]);
+		console.log(rvs.executables[1][2][1][0][0][1][1][0][1]);
+	}
+	/*--------------------------*/
+	
 	for(var i = 0; i < 1; i++) {
 		// console.time("Time");
 		// for(var j = 0; j < 1000000; j++) {
@@ -236,10 +258,6 @@ var arr = [1 + 6, 7 - (m * 3), [114 + 514, n], 9 * n / m];
 		// }
 		// console.timeEnd("Time");
 		// console.log(rvs.arrVarMaps[0]);
-		var arr = rvs.GetVariable("arr");
-		for(var i = 0; i < arr.length; i++) {
-			console.log("[", arr[i][0], ",", arr[i][1], "]");
-		}
 	}
 	while(true) {
 		console.log(rvs.arrVarMaps[0]);

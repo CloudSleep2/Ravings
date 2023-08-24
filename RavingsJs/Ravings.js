@@ -1,13 +1,14 @@
 const ERvsType = {
-	_val : 0, // 值
-	_id : 1, // 标识符
-	_op : 2, // 运算符
-	_key : 3, // 关键字
+	_val : 0, // 值，[1] = 值
+	_id : 1, // 标识符，[1] = 标识符名称
+	_op : 2, // 运算符，[1] = ERvsOp.xxx
+	_key : 3, // 关键字，[1] = ERvsKeyword.xxx
 	_goto : 4, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
-	_str : 5, // 字符串
-	_arr : 6, // 数组
-	_viarr : 7, // 访问数组
+	_str : 5, // 字符串，[1] = 字符串
+	_arr : 6, // 数组，[1] = 数组，每个下标都是一个表达式数组
+	_viarr : 7, // 访问数组，[1] = [标识符名称, 表达式数组]
 };
+// 每个元素都会以数组的形式存储，[0] = ERvsType.xxx，[1] = 本体
 
 const ERvsKeyword = {
 	_var : 0,
@@ -295,13 +296,13 @@ class Ravings {
 		return this.CutCode(str.substring(i, j), loopBeginLine, arrBreak, arrConti);
 	}
 
-	/// @desc 分段出一个 ERvsType._arr
-	CutNewArray(str, i, len, _arrdest) {
+	/// @desc 分段出中括号里的内容，每个表达式之间以逗号分隔
+	CutArray(str, i, len, _arrdest) {
 		var _num = 1;
 		i++;
 		for(var j = i; j < len; j++) {
 			if(_num <= 1 && (str[j] == "," || str[j] == "]")) {
-				console.log(str.substring(i, j));
+				// console.log(str.substring(i, j));
 				_arrdest.push(this.CutCode(str.substring(i, j))[0]);
 				i = j + 1;
 			}
@@ -466,7 +467,6 @@ class Ravings {
 					_strtmp += strj;
 				}
 				// _strtmp = str.substring(i + 1, j);
-				console.log(_strtmp);
 				i = j;
 				res.push([ERvsType._str, _strtmp]);
 				continue;
@@ -592,10 +592,9 @@ class Ravings {
 					if(res.length > 0) {
 						var prevop = res[res.length - 1];
 						if(prevop[0] != ERvsType._id
-						&& (prevop[0] != ERvsType._op
-							|| (prevop[1] != ERvsOp._sr && prevop[1] != ERvsOp._mr))
+						&& prevop[0] != ERvsType._viarr
 						) {
-							// 若上一个元素不为 标识符、)、]，则将此次的 [ 视为建立新数组
+							// 若上一个元素不为 标识符、引用数组，则将此次的 [ 视为建立新数组
 							isNewArrOrObj = true;
 						}
 					} else {
@@ -604,10 +603,15 @@ class Ravings {
 
 					switch(str[i]) {
 						case "[":
+							var _arrdata = [];
 							if(isNewArrOrObj) {
-								var _arrdata = [];
-								i = this.CutNewArray(str, i, len, _arrdata);
+								i = this.CutArray(str, i, len, _arrdata);
 								res.push([ERvsType._arr, _arrdata]);
+							} else {
+								var prevop = res[res.length - 1];
+								i = this.CutArray(str, i, len, _arrdata);
+								prevop[1] = [[prevop[0], prevop[1]], _arrdata[0]];
+								prevop[0] = ERvsType._viarr;
 							}
 							break;
 							
@@ -913,15 +917,12 @@ class Ravings {
 			// console.log("PO", arrParts);console.log("poi", i, part);
 			if(part[0] != ERvsType._op) {
 				if(part[0] == ERvsType._arr) {
-					i = this.MakeArray(arrParts, i, destarr, ++iTop);
-				} else {
+					this.MakeArray(part[1], destarr, ++iTop);
+				} else
+				{
 					destarr[++iTop] = part;
 				}
 			} else {
-				if(part[1] == ERvsOp._ml) {
-					console.log("arrParts", i-1, arrParts[i - 1]);
-					
-				}
 
 				var opSide = this.GetOpSide(part[1]);
 				// console.log("st", opSide, part, destarr, iTop);
@@ -933,19 +934,29 @@ class Ravings {
 				if(opSide != 2) {
 					var _tmppart = destarr[iTop--];
 					rvalSrc = _tmppart[1];
-					if(_tmppart[0] == ERvsType._id) {
-						rval = this.GetVariable(rvalSrc);
-					} else {
-						rval = rvalSrc;
+					switch(_tmppart[0]) {
+						case ERvsType._id: // 标识符
+							rval = this.GetVariable(rvalSrc);
+							break;
+						case ERvsType._viarr: // 访问数组
+							rval = this.VisitArrayGet(_tmppart[1]);
+							break;
+						default:
+							rval = rvalSrc;
 					}
 				}
 				if(opSide != 1) {
 					var _tmppart = destarr[iTop--];
 					lvalSrc = _tmppart[1];
-					if(_tmppart[0] == ERvsType._id) {
-						lval = this.GetVariable(lvalSrc);
-					} else {
-						lval = lvalSrc;
+					switch(_tmppart[0]) {
+						case ERvsType._id: // 标识符
+							lval = this.GetVariable(lvalSrc);
+							break;
+						case ERvsType._viarr: // 访问数组
+							lval = this.VisitArrayGet(_tmppart[1]);
+							break;
+						default:
+							lval = lvalSrc;
 					}
 				}
 				// console.log({op: part[1], lval, rval});
@@ -963,26 +974,49 @@ class Ravings {
 		return iTop;
 	}
 
+	/// @desc 访问数组
+	VisitArrayGet(partval) {
+		var tmparr = [];
+		// console.log("partval",partval);
+		this.RunRevPolish(partval[1], 0, partval[1].length, tmparr);
+
+		var res = undefined;
+		if(partval[0][0] == ERvsType._id) {
+			res = this.GetVariable(partval[0][1])[tmparr[0][1]];
+		} else
+		if(partval[0][0] == ERvsType._viarr) {
+			res = this.VisitArrayGet(partval[0][1])[tmparr[0][1]];
+		}
+		return res;
+	}
+
 	/// @desc 根据 ERvsType._arr 生成一个新的数组
-	MakeArray(arrParts, i, destarr, destiTop) {
+	MakeArray(partval, destarr, destiTop) {
 		var tmparr = [];
 
-		var len = arrParts[i][1].length;
+		var len = partval.length;
+		var iTop = -1;
 		for(var j = 0; j < len; j++) {
-			var iTop = this.RunRevPolish(arrParts[i][1][j], 0, arrParts[i][1][j].length, tmparr, iTop);
+			iTop = this.RunRevPolish(partval[j], 0, partval[j].length, tmparr, iTop);
 		}
 		
 		tmparr.splice(iTop + 1);
 		
-		for(var j = tmparr.length - 1; j >= 0; j--) {
+		len = tmparr.length;
+		for(var j = 0; j < len; j++) {
 			if(tmparr[j][0] == ERvsType._id) {
-				tmparr[j][0] = ERvsType._val;
-				tmparr[j][1] = this.GetVariable(tmparr[j][1]);
+				tmparr[j] = this.GetVariable(tmparr[j][1]);
+			} else
+			if(tmparr[j][0] == ERvsType._viarr) {
+				tmparr[j] = this.VisitArrayGet(tmparr[j][1]);
+				// console.log("tmparr[j]", tmparr[j]);
+			} else
+			{
+				tmparr[j] = tmparr[j][1];
 			}
 		}
 
 		destarr[destiTop] = [ERvsType._arr, tmparr];
-		return i;
 	}
 
 	iLineAddPh = [0]; // PlaceHolder
@@ -1095,7 +1129,6 @@ class Ravings {
 
 	/// @desc 执行一段代码，会返回最后一句的结果作为返回值，仅供测试用
 	RunCode(str = "") {
-		// console.log(arrArrParts);
 		return this.RunCuttedCode(this.CutCode(str));
 	}
 
