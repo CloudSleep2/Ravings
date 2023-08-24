@@ -1,5 +1,3 @@
-const { it } = require("node:test");
-
 const ERvsType = {
 	_val : 0, // 值
 	_id : 1, // 标识符
@@ -8,6 +6,7 @@ const ERvsType = {
 	_goto : 4, // 跳转到指定行（相对，例如 [ERvsType._goto, 3] 就相当于跳转到后三行的位置）
 	_str : 5, // 字符串
 	_arr : 6, // 数组
+	_viarr : 7, // 访问数组
 };
 
 const ERvsKeyword = {
@@ -76,7 +75,6 @@ const ERvsOp = { // 对于各种运算符的枚举
 	_bl : 39 , // {
 	_br : 40 , // }
 	_cm : 41 , // ,
-	_mlnew : 42, // [new // Create Array Head
 };
 const gStructERvsOps = {
 	"=" : ERvsOp._set,
@@ -121,7 +119,6 @@ const gStructERvsOps = {
 	"{" : ERvsOp._bl,
 	"}" : ERvsOp._br,
 	"," : ERvsOp._cm,
-	"[new" : ERvsOp._mlnew,
 };
 
 var gRvsMapVar = new Map(); // 装有rvs全局变量的Map
@@ -298,6 +295,32 @@ class Ravings {
 		return this.CutCode(str.substring(i, j), loopBeginLine, arrBreak, arrConti);
 	}
 
+	/// @desc 分段出一个 ERvsType._arr
+	CutNewArray(str, i, len, _arrdest) {
+		var _num = 1;
+		i++;
+		for(var j = i; j < len; j++) {
+			if(_num <= 1 && (str[j] == "," || str[j] == "]")) {
+				console.log(str.substring(i, j));
+				_arrdest.push(this.CutCode(str.substring(i, j))[0]);
+				i = j + 1;
+			}
+
+			if(str[j] == "[") {
+				_num++;
+			} else
+			if(str[j] == "]") {
+				_num--;
+				if(_num <= 0) {
+					break;
+				}
+			}
+		}
+		return i - 1;
+	}
+
+	_CutCodeArrBreakPh = [];
+	_CutCodeArrContiPh = [];
 	strCalcChars = 
 		" \t\n" + // 0 ~ 2
 		",.()[]{}" + // 3 ~ 10
@@ -307,7 +330,7 @@ class Ravings {
 	/// @param {real} loopBeginLine 给 if 里面的 break 和 continue 看看上一个 for 或 while 在哪并以此来算出自身的行号，递归往内传参数用的
 	/// @param {array} arrBreak 递归往外传参数用的
 	/// @param {array} arrConti 递归往外传参数用的
-	CutCode(str, loopBeginLine = 0, arrBreak = [], arrConti = []) {
+	CutCode(str, loopBeginLine = 0, arrBreak = this._CutCodeArrBreakPh, arrConti = this._CutCodeArrContiPh) {
 		var finalRes = []; // 这里面会装着许多 res
 		var res = [];
 
@@ -567,21 +590,30 @@ class Ravings {
 
 					var isNewArrOrObj = false;
 					if(res.length > 0) {
-						if(res[res.length - 1][0] != ERvsType._id) {
+						var prevop = res[res.length - 1];
+						if(prevop[0] != ERvsType._id
+						&& (prevop[0] != ERvsType._op
+							|| (prevop[1] != ERvsOp._sr && prevop[1] != ERvsOp._mr))
+						) {
+							// 若上一个元素不为 标识符、)、]，则将此次的 [ 视为建立新数组
 							isNewArrOrObj = true;
 						}
 					} else {
 						isNewArrOrObj = true;
 					}
-					if(isNewArrOrObj) {
-						switch(str[i]) {
-							case "[":
-								opTempRes = ERvsOp._mlnew;
-								break;
-						}
-					}
 
-					res.push([ERvsType._op, opTempRes]);
+					switch(str[i]) {
+						case "[":
+							if(isNewArrOrObj) {
+								var _arrdata = [];
+								i = this.CutNewArray(str, i, len, _arrdata);
+								res.push([ERvsType._arr, _arrdata]);
+							}
+							break;
+							
+						default:
+							res.push([ERvsType._op, opTempRes]);
+					}
 				} else {
 					res.push([ERvsType._op, str[i]]);
 				}
@@ -660,10 +692,10 @@ class Ravings {
 			case ERvsOp._rinc:
 			case ERvsOp._rdec:
 				return 2; // 仅有左值
-			case ERvsOp._cm:
-			case ERvsOp._mlnew:
-			case ERvsOp._mr:
-				return 3; // 跳过
+			// case ERvsOp._cm:
+			// case ERvsOp._ml:
+			// case ERvsOp._mr:
+			// 	return 3; // 跳过
 		}
 		return 0; // 有左值也有右值
 	}
@@ -801,8 +833,6 @@ class Ravings {
 		var arrSt = []; // Stack
 		var arrPo = []; // Reverser Polish
 
-		var opMl_arrStLen = 0; // 遇到 Op._cm、Op._ml、Op._mr 时 arrSt 的长度
-
 		var len = arr.length;
 		for(var i = 0; i < len; i++) {
 			var val = arr[i];
@@ -816,21 +846,6 @@ class Ravings {
 				arrPo.push(arr[i]); // 关键字直接入逆波兰式
 			} else
 			if(val[0] == ERvsType._op) { // 若为运算符
-				if(val[1] == ERvsOp._mlnew) { // 左中括号（创建数组用）
-					if(opMl_arrStLen > 0)
-					for(var j = arrSt.length; j > opMl_arrStLen; j--) {
-						arrPo.push(arrSt.pop());
-					}
-					arrPo.push(val);
-					opMl_arrStLen = arrSt.length;
-				} else
-				if(val[1] == ERvsOp._cm || val[1] == ERvsOp._mr) { // 右中括号（创建数组用）
-					for(var j = arrSt.length; j > opMl_arrStLen; j--) {
-						arrPo.push(arrSt.pop());
-					}
-					arrPo.push(val);
-					opMl_arrStLen = arrSt.length;
-				} else
 				if(val[1] == ERvsOp._sl) { // 左括号直接入栈
 					arrSt.push(val);
 				} else
@@ -891,24 +906,25 @@ class Ravings {
 	}
 
 	/// @desc 执行逆波兰式，结果位于 destarr
-	RunRevPolish(arrParts, i, len, destarr) {
-		var iTop = -1;
+	RunRevPolish(arrParts, i, len, destarr, iTop = -1) {
+		// var iTop = -1;
 		for(; i < len; i++) {
 			var part = arrParts[i];
 			// console.log("PO", arrParts);console.log("poi", i, part);
 			if(part[0] != ERvsType._op) {
-				destarr[++iTop] = part;
+				if(part[0] == ERvsType._arr) {
+					i = this.MakeArray(arrParts, i, destarr, ++iTop);
+				} else {
+					destarr[++iTop] = part;
+				}
 			} else {
-				if(part[1] == ERvsOp._mlnew) {
-					i = this.MakeArray(arrParts, i + 1, len, destarr, ++iTop);
+				if(part[1] == ERvsOp._ml) {
+					console.log("arrParts", i-1, arrParts[i - 1]);
+					
 				}
 
 				var opSide = this.GetOpSide(part[1]);
 				// console.log("st", opSide, part, destarr, iTop);
-				
-				if(opSide == 3) {
-					continue;
-				}
 
 				var rval = 0;
 				var lval = 0;
@@ -947,28 +963,17 @@ class Ravings {
 		return iTop;
 	}
 
-	/// @desc 根据 ERvsOp._mlnew 和 ERvsOp._mr 生成一个新的数组
-	MakeArray(arrParts, i, len, destarr, destiTop) {
+	/// @desc 根据 ERvsType._arr 生成一个新的数组
+	MakeArray(arrParts, i, destarr, destiTop) {
 		var tmparr = [];
-		var l = i;
-		var _mlnewNum = 1;
-		for(; i < len; i++) {
-			if(arrParts[i][0] == ERvsType._op) {
-				if(arrParts[i][1] == ERvsOp._ml || arrParts[i][1] == ERvsOp._mlnew) {
-					_mlnewNum++;
-				}
-				if(arrParts[i][1] == ERvsOp._mr) {
-					_mlnewNum--;
-					if(_mlnewNum == 0) {
-						break;
-					}
-				}
-			}
+
+		var len = arrParts[i][1].length;
+		for(var j = 0; j < len; j++) {
+			var iTop = this.RunRevPolish(arrParts[i][1][j], 0, arrParts[i][1][j].length, tmparr, iTop);
 		}
-
-		var iTop = this.RunRevPolish(arrParts, l, i, tmparr);
-
+		
 		tmparr.splice(iTop + 1);
+		
 		for(var j = tmparr.length - 1; j >= 0; j--) {
 			if(tmparr[j][0] == ERvsType._id) {
 				tmparr[j][0] = ERvsType._val;
@@ -977,8 +982,6 @@ class Ravings {
 		}
 
 		destarr[destiTop] = [ERvsType._arr, tmparr];
-		console.log({l, i, iTop});
-		console.log(tmparr);
 		return i;
 	}
 
