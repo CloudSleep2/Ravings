@@ -953,7 +953,7 @@ class Ravings {
 							lval = this.GetVariable(lvalSrc);
 							break;
 						case ERvsType._viarr: // 访问数组
-							lval = this.VisitArrayGet(_tmppart[1]);
+							lval = this.VisitArrayGet(lvalSrc);
 							break;
 						default:
 							lval = lvalSrc;
@@ -964,7 +964,11 @@ class Ravings {
 				destarr[++iTop] = [ERvsType._val, opRes[0]];
 
 				if(opRes[1] != undefined) {
-					this.SetVariable(lvalSrc, opRes[1]);
+					if(_tmppart[0] == ERvsType._viarr) {
+						this.VisitArraySet(lvalSrc, opRes[1]);
+					} else {
+						this.SetVariable(lvalSrc, opRes[1]);
+					}
 				}
 				if(opRes[2] != undefined) {
 					this.SetVariable(rvalSrc, opRes[2]);
@@ -974,7 +978,7 @@ class Ravings {
 		return iTop;
 	}
 
-	/// @desc 访问数组
+	/// @desc 访问数组，取值
 	VisitArrayGet(partval) {
 		var tmparr = [];
 		// console.log("partval",partval);
@@ -990,6 +994,20 @@ class Ravings {
 		return res;
 	}
 
+	/// @desc 访问数组，赋值
+	VisitArraySet(partval, val) {
+		var tmparr = [];
+		console.log("partval",partval, "=", val);
+		this.RunRevPolish(partval[1], 0, partval[1].length, tmparr);
+
+		if(partval[0][0] == ERvsType._id) {
+			this.GetVariable(partval[0][1])[tmparr[0][1]] = val;
+		} else
+		if(partval[0][0] == ERvsType._viarr) {
+			this.VisitArrayGet(partval[0][1])[tmparr[0][1]] = val;
+		}
+	}
+
 	/// @desc 根据 ERvsType._arr 生成一个新的数组
 	MakeArray(partval, destarr, destiTop) {
 		var tmparr = [];
@@ -997,7 +1015,9 @@ class Ravings {
 		var len = partval.length;
 		var iTop = -1;
 		for(var j = 0; j < len; j++) {
-			iTop = this.RunRevPolish(partval[j], 0, partval[j].length, tmparr, iTop);
+			if(partval[j] != undefined) {
+				iTop = this.RunRevPolish(partval[j], 0, partval[j].length, tmparr, iTop);
+			}
 		}
 		
 		tmparr.splice(iTop + 1);

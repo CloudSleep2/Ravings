@@ -224,10 +224,22 @@ var arr = [1 + 6, 7 - (m * 3), [114 + 514, n], 9 * n / m];
 n = arr[2 + 1];
 m = arr[1 + 1][0];
 var k = [arr[0] + arr[2][1], [arr[0] * n, m]];
+arr[0] += 10;
+arr[1] = [10, "hel"];
+arr[1][1] += "lo";
+arr[2][0] = [12, 34, 56];
+arr[3] = [];
 	`;
 	codes[14] = `
 var a = [114];
 var b = [a[0]];
+	`;
+	codes[15] = `
+var a = [1];
+var n = 0;
+for(var i = 0; i < 1000000; i++) {
+	n += a[0];
+}
 	`;
 
 	var testindex = 13;
@@ -252,11 +264,11 @@ var b = [a[0]];
 	/*--------------------------*/
 	
 	for(var i = 0; i < 1; i++) {
-		// console.time("Time");
+		console.time("Time");
 		// for(var j = 0; j < 1000000; j++) {
 			rvs.Run();
 		// }
-		// console.timeEnd("Time");
+		console.timeEnd("Time");
 		// console.log(rvs.arrVarMaps[0]);
 	}
 	while(true) {
