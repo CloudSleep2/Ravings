@@ -248,6 +248,8 @@ var k = 16;
 k += 4;
 var str = "Hello, //world!";
 // 字符串中的 "//" 符号不会被视为注释
+k *=/*10TEST10
+TESTEST*/5;
 	`;
 
 	var testindex = 16;
