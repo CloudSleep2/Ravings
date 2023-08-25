@@ -229,6 +229,7 @@ arr[1] = [10, "hel"];
 arr[1][1] += "lo";
 arr[2][0] = [12, 34, 56];
 arr[3] = [];
+arr[4] = [arr[1][1]];
 	`;
 	codes[14] = `
 var a = [114];
@@ -241,8 +242,15 @@ for(var i = 0; i < 1000000; i++) {
 	n += a[0];
 }
 	`;
+	codes[16] = `
+var k = 16;
+// k /= 2;
+k += 4;
+var str = "Hello, //world!";
+// 字符串中的 "//" 符号不会被视为注释
+	`;
 
-	var testindex = 13;
+	var testindex = 16;
 	console.time("Parse");
 	rvs.Parse(codes[testindex]);
 	console.timeEnd("Parse");

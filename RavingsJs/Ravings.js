@@ -345,6 +345,18 @@ class Ravings {
 		var len = str.length;
 		for(var i = 0; i < len; i++) {
 
+			if(i < len - 1) {
+				if(str[i] == "/" && str[i + 1] == "/") {
+					for(var j = i + 2; j < len; j++) {
+						if(str[j] == "\n") {
+							break;
+						}
+					}
+					i = j;
+					continue;
+				}
+			}
+
 			if(str[i] == "{") {
 
 				if(res.length != 0) {
