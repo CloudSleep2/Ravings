@@ -26,27 +26,29 @@
 - [x] 关键字 for
 - [x] 关键字 break
 - [x] 关键字 continue
-- [ ] 关键字 function 和 函数调用
+- [x] 关键字 function 创建全局函数
+- [ ] 关键字 function 创建 lambda 函数
 - [ ] 关键字 return
+- [ ] 函数调用 ()
 - [x] 创建数组 []
 - [x] 访问数组 []
 - [ ] 创建对象 {}
 - [ ] 访问对象 .
 - [x] 字符串 ""
-- [ ] lambda 函数
 - [x] 注释 // /* */
+- [ ] 全局变量
 
 ## 保留关键字
 
-    var 定义变量
-    function 定义函数
-    if 分歧语句
-    else 分歧语句
-    for 循环语句
-    while 循环语句
-    break 终止循环
-    continue 跳过一次循环
-    return 返回
+	var 定义变量
+	if 分歧语句
+	else 分歧语句
+	while 循环语句
+	for 循环语句
+	break 终止循环
+	continue 跳过一次循环
+	function 定义函数
+	return 返回
 
 ## 开发中一些问题的解决方案
 

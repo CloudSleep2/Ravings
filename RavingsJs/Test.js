@@ -251,16 +251,24 @@ var str = "Hello, //world!";
 k *=/*10TEST10
 TESTEST*/5;
 	`;
+	codes[17] = `
+function func(argA, argB) {
+	var k = argA;
+	var p = argB;
+}
+var f = func;
+	`;
 
-	var testindex = 16;
+	var testindex = 17;
 	console.time("Parse");
 	rvs.Parse(codes[testindex]);
 	console.timeEnd("Parse");
+
+	console.log(rvs.executables);
 	
 	/* 适用于 codes[14] 测试样例 */
 	// 用于测试为了读取 var b 那一句里后面那个 a[0] 里的 数字0 一共需要越过几层数组
 	if(testindex == 14) {
-		console.log(rvs.executables);
 		console.log(rvs.executables[1]);
 		console.log(rvs.executables[1][2]);
 		console.log(rvs.executables[1][2][1]);
@@ -282,6 +290,7 @@ TESTEST*/5;
 		// console.log(rvs.arrVarMaps[0]);
 	}
 	while(true) {
+		console.log(ravings.gRvsMapVar);
 		console.log(rvs.arrVarMaps[0]);
 		console.log(rvs.RunCode(await GetInput("> ")));
 	}

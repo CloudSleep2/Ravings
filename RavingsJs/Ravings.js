@@ -7,6 +7,8 @@ const ERvsType = {
 	_str : 5, // 字符串，[1] = 字符串
 	_arr : 6, // 数组，[1] = 数组，每个下标都是一个表达式数组
 	_viarr : 7, // 访问数组，[1] = [标识符名称, 表达式数组]
+	_callfn : 8, // 调用函数
+	_lambda : 9, // 匿名函数
 };
 // 每个元素都会以数组的形式存储，[0] = ERvsType.xxx，[1] = 本体
 
@@ -153,17 +155,18 @@ class Ravings {
 		this.arrVarMaps[this.arrVarMaps.length - 1].set(name, 0);
 	}
 
-	/// @desc 获取变量的值
+	/// @desc 获取变量的值，如果没找到则会从全局变量中查找，如果也没找到就返回 undefined
 	GetVariable(name) {
 		for(var i = this.arrVarMaps.length - 1; i >= 0; i--) {
 			if(this.arrVarMaps[i].has(name)) {
 				return this.arrVarMaps[i].get(name);
 			}
 		}
-		return undefined;
+		return gRvsMapVar.get(name);
+		// return undefined;
 	}
 
-	/// @desc 设置变量的值，没有变量的话就在当前最高层作用域下建立新变量
+	/// @desc 设置变量的值，没有变量的话就在当前除全局变量之外的最高层作用域下建立新变量
 	SetVariable(name, val) {
 		for(var i = this.arrVarMaps.length - 1; i >= 0; i--) {
 			if(this.arrVarMaps[i].has(name)) {
@@ -171,7 +174,21 @@ class Ravings {
 				return;
 			}
 		}
+		if(gRvsMapVar.has(name)) {
+			gRvsMapVar.set(name, val);
+			return;
+		}
 		this.arrVarMaps[0].set(name, val);
+	}
+
+	/// @desc 设置全局变量的值
+	SetGlobalVar(name, val) {
+		gRvsMapVar.set(name, val);
+	}
+
+	/// @desc 获取全局变量的值
+	GetGlobalVar(name) {
+		return gRvsMapVar.get(name);
 	}
 
 	/// @desc 检查某一字符是否是阿拉伯数字或小数点
@@ -297,20 +314,26 @@ class Ravings {
 	}
 
 	/// @desc 分段出中括号里的内容，每个表达式之间以逗号分隔
-	CutArray(str, i, len, _arrdest) {
-		var _num = 1;
+	CutArray(str, i, len, _arrdest, _lchr = "[", _rchr = "]") {
+		var _num = 0;
+		if(str[i] == _lchr) {
+			_num = 1;
+		}
 		i++;
 		for(var j = i; j < len; j++) {
-			if(_num <= 1 && (str[j] == "," || str[j] == "]")) {
+			if(_num <= 1 && (str[j] == "," || str[j] == _rchr)) {
 				// console.log(str.substring(i, j));
 				_arrdest.push(this.CutCode(str.substring(i, j))[0]);
 				i = j + 1;
 			}
 
-			if(str[j] == "[") {
+			if(str[j] == _lchr) {
+				if(_num == 0) {
+					i = j + 1;
+				}
 				_num++;
 			} else
-			if(str[j] == "]") {
+			if(str[j] == _rchr) {
 				_num--;
 				if(_num <= 0) {
 					break;
@@ -318,6 +341,24 @@ class Ravings {
 			}
 		}
 		return i - 1;
+	}
+
+	/// @desc 分出一个函数，i 需要为首个左括号的位置，返回 [[参数列表], [该函数的代码块]]
+	CutFunc(str, i, len, _arrdest) {
+		var _arrtmp = [];
+		i = this.CutArray(str, i, len, _arrtmp, "(", ")");
+		var _arrtmplen = _arrtmp.length;
+
+		_arrdest[0] = [];
+		for(var j = 0; j < _arrtmplen; j++) {
+			_arrdest[0].push(_arrtmp[j][0]);
+		}
+
+		var _newend = [0];
+		_arrtmp = this.CutBracket("{", "}", str, i, len, _newend);
+		_arrdest[1] = _arrtmp;
+
+		return _newend[0];
 	}
 
 	_CutCodeArrBreakPh = [];
@@ -521,7 +562,7 @@ class Ravings {
 				}
 				var ident = str.substring(i, j);
 				if(this.IsKeyWord(ident)) {
-					if(ident != "for" && ident != "break" && ident != "continue") { // for 会到后面单独处理
+					if(ident != "for" && ident != "break" && ident != "continue" && ident != "function") { // 这些会到后面单独处理
 						res.push([ERvsType._key, gStructERvsKeywords[ident]]); // 关键字
 					}
 				} else {
@@ -603,6 +644,28 @@ class Ravings {
 					case "continue":
 						this.UploadSentence([[ERvsType._goto, 0]], finalRes, false);
 						arrConti.push(finalRes.length + loopBeginLine);
+						break;
+
+					case "function":
+						if(res.length == 0) { // function xxx() {}
+							var _funcid = "";
+							for(var j = ++i; j < len; j++) {
+								if(str[j] == " " || str[j] == "(") {
+									if(_funcid != "") {
+										i = j;
+										break;
+									}
+								} else {
+									_funcid += str[j];
+								}
+							}
+							
+							var _arrtmp = [];
+							i = this.CutFunc(str, i, len, _arrtmp);
+							this.SetGlobalVar(_funcid, _arrtmp);
+						} else { // xxx = function() {}
+
+						}
 						break;
 				}
 				continue;
@@ -1189,5 +1252,6 @@ class Ravings {
 };
 
 module.exports = {
-	Ravings
+	Ravings,
+	gRvsMapVar
 };
