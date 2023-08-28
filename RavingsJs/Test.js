@@ -257,41 +257,44 @@ function func(argA, argB) {
 	var p = argB;
 }
 var f = func;
+var n = -2;
+var m = 16;
+func(10 + n, m);
 	`;
 
-	var testindex = 17;
+	var testindex = 13;
 	console.time("Parse");
 	rvs.Parse(codes[testindex]);
 	console.timeEnd("Parse");
 
-	console.log(rvs.executables);
+	console.log(rvs.arrExecutables[0]);
 	
 	/* 适用于 codes[14] 测试样例 */
 	// 用于测试为了读取 var b 那一句里后面那个 a[0] 里的 数字0 一共需要越过几层数组
 	if(testindex == 14) {
-		console.log(rvs.executables[1]);
-		console.log(rvs.executables[1][2]);
-		console.log(rvs.executables[1][2][1]);
-		console.log(rvs.executables[1][2][1][0]);
-		console.log(rvs.executables[1][2][1][0][0]);
-		console.log(rvs.executables[1][2][1][0][0][1]);
-		console.log(rvs.executables[1][2][1][0][0][1][1]);
-		console.log(rvs.executables[1][2][1][0][0][1][1][0]);
-		console.log(rvs.executables[1][2][1][0][0][1][1][0][1]);
+		console.log(rvs.arrExecutables[0][1]);
+		console.log(rvs.arrExecutables[0][1][2]);
+		console.log(rvs.arrExecutables[0][1][2][1]);
+		console.log(rvs.arrExecutables[0][1][2][1][0]);
+		console.log(rvs.arrExecutables[0][1][2][1][0][0]);
+		console.log(rvs.arrExecutables[0][1][2][1][0][0][1]);
+		console.log(rvs.arrExecutables[0][1][2][1][0][0][1][1]);
+		console.log(rvs.arrExecutables[0][1][2][1][0][0][1][1][0]);
+		console.log(rvs.arrExecutables[0][1][2][1][0][0][1][1][0][1]);
 	}
 	/*--------------------------*/
 	
 	for(var i = 0; i < 1; i++) {
-		console.time("Time");
+		// console.time("Time");
 		// for(var j = 0; j < 1000000; j++) {
 			rvs.Run();
 		// }
-		console.timeEnd("Time");
-		// console.log(rvs.arrVarMaps[0]);
+		// console.timeEnd("Time");
+		// console.log("local: ", rvs.arrVarMaps[0]);
 	}
 	while(true) {
-		console.log(ravings.gRvsMapVar);
-		console.log(rvs.arrVarMaps[0]);
+		console.log("global: ", ravings.gRvsMapVar);
+		console.log("local: ", rvs.arrVarMaps[0]);
 		console.log(rvs.RunCode(await GetInput("> ")));
 	}
 }

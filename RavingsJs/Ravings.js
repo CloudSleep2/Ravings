@@ -135,7 +135,7 @@ class Ravings {
 	// 该数组会在解析时根据最长的句子长度设定自身长度，具体见 UploadSentence()
 	// 这么做是为了不去使用 push() 和 pop()，能省下许多运行时间
 
-	executables = []; // 解析完成的结果，可以直接被 Ravings 执行
+	arrExecutables = []; // 解析完成的结果，可以直接被 Ravings 执行
 
 	constructor() {
 		this.AddVarMap(); // 一开始得先有一个层级
@@ -675,30 +675,40 @@ class Ravings {
 				var opTempRes = gStructERvsOps[str[i]];
 				if(opTempRes != undefined) {
 
-					var isNewArrOrObj = false;
+					var prevIsVar = false;
 					if(res.length > 0) {
 						var prevop = res[res.length - 1];
-						if(prevop[0] != ERvsType._id
-						&& prevop[0] != ERvsType._viarr
+						if(prevop[0] == ERvsType._id // 为 标识符
+							|| prevop[0] == ERvsType._viarr // 为 访问数组
+							|| prevop[0] == ERvsType._callfn // 为 调用函数
 						) {
-							// 若上一个元素不为 标识符、引用数组，则将此次的 [ 视为建立新数组
-							isNewArrOrObj = true;
+							prevIsVar = true;
 						}
-					} else {
-						isNewArrOrObj = true;
 					}
 
 					switch(str[i]) {
 						case "[":
 							var _arrdata = [];
-							if(isNewArrOrObj) {
-								i = this.CutArray(str, i, len, _arrdata);
-								res.push([ERvsType._arr, _arrdata]);
-							} else {
+							if(prevIsVar) { // 视为访问数组
 								var prevop = res[res.length - 1];
 								i = this.CutArray(str, i, len, _arrdata);
 								prevop[1] = [[prevop[0], prevop[1]], _arrdata[0]];
 								prevop[0] = ERvsType._viarr;
+							} else { // 视为建立新数组
+								i = this.CutArray(str, i, len, _arrdata);
+								res.push([ERvsType._arr, _arrdata]);
+							}
+							break;
+
+						case "(":
+							if(prevIsVar) { // 视为调用函数
+								var _arrdata = [];
+								var prevop = res[res.length - 1];
+								i = this.CutArray(str, i, len, _arrdata, "(", ")");
+								prevop[1] = [[prevop[0], prevop[1]], _arrdata];
+								prevop[0] = ERvsType._callfn;
+							} else { // 视为常规括号
+								res.push([ERvsType._op, opTempRes]);
 							}
 							break;
 							
@@ -1003,8 +1013,11 @@ class Ravings {
 			var part = arrParts[i];
 			// console.log("PO", arrParts);console.log("poi", i, part);
 			if(part[0] != ERvsType._op) {
-				if(part[0] == ERvsType._arr) {
+				if(part[0] == ERvsType._arr) { // 生成数组
 					this.MakeArray(part[1], destarr, ++iTop);
+				} else
+				if(part[0] == ERvsType._callfn) { // 调用函数
+					destarr[++iTop] = this.CallFunc(part[1]);
 				} else
 				{
 					destarr[++iTop] = part;
@@ -1065,34 +1078,34 @@ class Ravings {
 		return iTop;
 	}
 
+	TypeFunc(_type_and_arg) {
+		switch(_type_and_arg[0]) {
+			case ERvsType._id:
+				return this.GetVariable(_type_and_arg[1]);
+			case ERvsType._viarr:
+				return this.VisitArrayGet(_type_and_arg[1]);
+			case ERvsType._callfn:
+				return this.CallFunc(_type_and_arg[1]);
+		}
+		return undefined;
+	}
+
 	/// @desc 访问数组，取值
 	VisitArrayGet(partval) {
 		var tmparr = [];
 		// console.log("partval",partval);
 		this.RunRevPolish(partval[1], 0, partval[1].length, tmparr);
 
-		var res = undefined;
-		if(partval[0][0] == ERvsType._id) {
-			res = this.GetVariable(partval[0][1])[tmparr[0][1]];
-		} else
-		if(partval[0][0] == ERvsType._viarr) {
-			res = this.VisitArrayGet(partval[0][1])[tmparr[0][1]];
-		}
-		return res;
+		return this.TypeFunc(partval[0])[tmparr[0][1]];;
 	}
 
 	/// @desc 访问数组，赋值
 	VisitArraySet(partval, val) {
 		var tmparr = [];
-		console.log("partval",partval, "=", val);
+		// console.log("partval",partval, "=", val);
 		this.RunRevPolish(partval[1], 0, partval[1].length, tmparr);
 
-		if(partval[0][0] == ERvsType._id) {
-			this.GetVariable(partval[0][1])[tmparr[0][1]] = val;
-		} else
-		if(partval[0][0] == ERvsType._viarr) {
-			this.VisitArrayGet(partval[0][1])[tmparr[0][1]] = val;
-		}
+		this.TypeFunc(partval[0])[tmparr[0][1]] = val;
 	}
 
 	/// @desc 根据 ERvsType._arr 生成一个新的数组
@@ -1111,19 +1124,22 @@ class Ravings {
 		
 		len = tmparr.length;
 		for(var j = 0; j < len; j++) {
-			if(tmparr[j][0] == ERvsType._id) {
-				tmparr[j] = this.GetVariable(tmparr[j][1]);
-			} else
-			if(tmparr[j][0] == ERvsType._viarr) {
-				tmparr[j] = this.VisitArrayGet(tmparr[j][1]);
-				// console.log("tmparr[j]", tmparr[j]);
-			} else
-			{
+			var _tmp = this.TypeFunc(tmparr[j]);
+			if(_tmp == undefined) {
 				tmparr[j] = tmparr[j][1];
+			} else {
+				tmparr[j] = _tmp;
 			}
 		}
 
 		destarr[destiTop] = [ERvsType._arr, tmparr];
+	}
+
+	/// @desc 调用函数
+	CallFunc(partval) {
+		console.log("partval", partval[1]);
+		// TODO
+		return 0;
 	}
 
 	iLineAddPh = [0]; // PlaceHolder
@@ -1240,13 +1256,13 @@ class Ravings {
 	}
 
 	/// @desc 解析一段代码
-	Parse(strcode) {
-		this.executables = this.CutCode(strcode);
+	Parse(strcode, _eventId = 0) {
+		this.arrExecutables[_eventId] = this.CutCode(strcode);
 	}
 
 	/// @desc 运行代码（需要先解析，见 Parse() 函数）
-	Run() {
-		return this.RunCuttedCode(this.executables);
+	Run(_eventId = 0) {
+		return this.RunCuttedCode(this.arrExecutables[_eventId]);
 	}
 
 };
