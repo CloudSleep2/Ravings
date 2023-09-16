@@ -1,5 +1,7 @@
 # 胡言乱语 Ravings
 
+已弃坑，因为做了套更好的解决方案：https://github.com/WheatBox/FxxkGML
+
 ## 介绍
 
 你说的对，但是《胡言乱语 Ravings》是由 Github@WheatBox 专为 GML 开发的一款在游戏运行时无需编译即可直接运行的脚本语言（准确点来说，是它的解释器），主要用于 Mod 系统、热更新 等要在运行时增加新内容的情况。
